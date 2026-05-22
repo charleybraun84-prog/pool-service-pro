@@ -23,7 +23,7 @@ export default function App() {
               {activeView === 'new-assessment' ? 'New Assessment' : activeView}
             </h2>
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
-              Pool Service Pro
+              Cricket's Pool & Spa World
             </p>
           </div>
           <div className="flex items-center space-x-2">

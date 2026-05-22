@@ -49,7 +49,7 @@ export default function InstallPrompt() {
           </div>
           <div>
             <h4 className="text-sm font-bold font-outfit text-white">Add to Home Screen</h4>
-            <p className="text-xs text-slate-400 mt-1 leading-relaxed">Install Pool Service Pro for offline access & faster load times.</p>
+            <p className="text-xs text-slate-400 mt-1 leading-relaxed">Install Cricket's Pool & Spa World for offline access & faster load times.</p>
           </div>
         </div>
         <button 

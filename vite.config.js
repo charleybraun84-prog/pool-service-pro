@@ -8,8 +8,8 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       manifest: {
-        name: 'Pool Service Pro',
-        short_name: 'PoolPro',
+        name: "Cricket's Pool & Spa World",
+        short_name: 'CricketPool',
         description: 'Professional Pool Assessment and Estimation Tool',
         theme_color: '#0f172a',
         background_color: '#f8fafc',

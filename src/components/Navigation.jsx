@@ -18,7 +18,7 @@ export default function Navigation({ activeView, setActiveView }) {
             <span className="text-xl">🌊</span>
           </div>
           <div>
-            <h1 className="font-outfit font-extrabold text-base tracking-tight text-white leading-tight">Pool Service Pro</h1>
+            <h1 className="font-outfit font-extrabold text-base tracking-tight text-white leading-tight">Cricket's Pool & Spa World</h1>
             <p className="text-[9px] text-brand-blueLight font-semibold uppercase tracking-wider mt-0.5">Technician Portal</p>
           </div>
         </div>

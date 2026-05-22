@@ -1,4 +1,4 @@
-import { ShieldCheck, Calendar, Info, DollarSign, Award, Clock } from 'lucide-react';
+import { ShieldCheck, Calendar, Info, DollarSign, Clock } from 'lucide-react';
 
 export default function Operations() {
   const disclosures = [

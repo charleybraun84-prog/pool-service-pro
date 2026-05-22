@@ -1,4 +1,4 @@
-import { MapPin, Calendar, Camera, Link as LinkIcon, ExternalLink } from 'lucide-react';
+import { MapPin, Calendar, Camera, Link as LinkIcon } from 'lucide-react';
 
 export default function DataList({ data, searchQuery }) {
   const parseDate = (dateStr) => {
