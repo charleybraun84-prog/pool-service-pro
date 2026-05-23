@@ -3,7 +3,6 @@ import Navigation from './components/Navigation';
 import Dashboard from './components/Dashboard';
 import Estimator from './components/Estimator';
 import Operations from './components/Operations';
-import NewAssessment from './components/NewAssessment';
 import InstallPrompt from './components/InstallPrompt';
 
 export default function App() {
@@ -28,8 +27,7 @@ export default function App() {
             </div>
             <div>
               <h2 className="text-base font-extrabold font-outfit text-slate-800 tracking-tight leading-tight capitalize">
-                {activeView === 'new-assessment' ? 'New Assessment' : 
-                 activeView === 'estimator' ? 'Maintenance Estimator' : 
+                {activeView === 'estimator' ? 'Maintenance Estimator' : 
                  activeView === 'repair-estimator' ? 'Repair Estimator' : 
                  activeView}
               </h2>
@@ -51,7 +49,6 @@ export default function App() {
           {activeView === 'estimator' && <Estimator activeTab="maintenance" />}
           {activeView === 'repair-estimator' && <Estimator activeTab="repairs" />}
           {activeView === 'operations' && <Operations />}
-          {activeView === 'new-assessment' && <NewAssessment />}
         </main>
       </div>
 

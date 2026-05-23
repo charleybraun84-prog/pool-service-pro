@@ -1,4 +1,4 @@
-import { ClipboardList, Calculator, FileText, PlusCircle, Wrench } from 'lucide-react';
+import { ClipboardList, Calculator, FileText, Wrench } from 'lucide-react';
 
 export default function Navigation({ activeView, setActiveView }) {
   const navItems = [
@@ -6,7 +6,6 @@ export default function Navigation({ activeView, setActiveView }) {
     { id: 'estimator', label: 'Maintenance Estimator', icon: Calculator },
     { id: 'repair-estimator', label: 'Repair Estimator', icon: Wrench },
     { id: 'operations', label: 'Operations', icon: FileText },
-    { id: 'new-assessment', label: 'New Form', icon: PlusCircle },
   ];
 
   return (
