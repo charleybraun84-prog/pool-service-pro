@@ -84,10 +84,19 @@ export async function geocodeAddress(address) {
   if (!address) return null;
   
   const cacheKey = `geocode_v2_${address}`;
-  const cached = localStorage.getItem(cacheKey);
+  let cached = null;
+  try {
+    cached = localStorage.getItem(cacheKey);
+  } catch (e) {
+    console.warn("localStorage is not accessible:", e);
+  }
   
   if (cached) {
-    return JSON.parse(cached);
+    try {
+      return JSON.parse(cached);
+    } catch (e) {
+      console.error("Failed to parse cached geocode:", e);
+    }
   }
 
   // Calculate the delay needed to respect Nominatim's 1 request/second usage policy.
@@ -116,7 +125,11 @@ export async function geocodeAddress(address) {
         lng: parseFloat(data[0].lon),
         displayName: cleanAddress
       };
-      localStorage.setItem(cacheKey, JSON.stringify(result));
+      try {
+        localStorage.setItem(cacheKey, JSON.stringify(result));
+      } catch (e) {
+        console.warn("Could not save to localStorage:", e);
+      }
       return result;
     }
     return null;

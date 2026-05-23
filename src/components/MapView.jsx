@@ -51,7 +51,12 @@ export default function MapView({ data }) {
         
         if (address) {
           const cacheKey = `geocode_${address}`;
-          const cached = localStorage.getItem(cacheKey);
+          let cached = null;
+          try {
+            cached = localStorage.getItem(cacheKey);
+          } catch (e) {
+            console.warn("localStorage is not accessible:", e);
+          }
           
           if (cached) {
             try {
