@@ -13,9 +13,13 @@ export default function Navigation({ activeView, setActiveView }) {
       {/* Sidebar for Desktop / Tablet */}
       <aside className="hidden md:flex flex-col w-64 bg-brand-dark text-white fixed h-full left-0 top-0 border-r border-brand-slate z-30 shadow-premium">
         {/* Brand Logo Header */}
-        <div className="flex items-center space-x-3 px-6 py-6 border-b border-brand-slate bg-brand-darker">
-          <div className="bg-brand-blue/20 p-2.5 rounded-xl border border-brand-blue/30">
-            <span className="text-xl">🌊</span>
+        <div className="flex items-center space-x-3 px-6 py-5 border-b border-brand-slate bg-brand-darker">
+          <div className="bg-white p-1 rounded-xl flex items-center justify-center w-12 h-12 flex-shrink-0 shadow-sm">
+            <img 
+              src="https://djjwaghhdhkaouarvsxp.supabase.co/storage/v1/object/sign/Cricket's/CRICKET-POOL-LOGO-fun-2.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV85YTYwMjY5Ni0yY2ZkLTQ3YTktOWQ2Ni0yZGE0MTVhZTliODYiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJDcmlja2V0J3MvQ1JJQ0tFVC1QT09MLUxPR08tZnVuLTIucG5nIiwiaWF0IjoxNzc5NDk2NzExLCJleHAiOjQ5MzMwOTY3MTF9.vifegprgcDqBIpOd7F_zEzGrO7XPMm4jY94OX9ajDBs" 
+              alt="Cricket's Pool & Spa World" 
+              className="w-full h-full object-contain"
+            />
           </div>
           <div>
             <h1 className="font-outfit font-extrabold text-base tracking-tight text-white leading-tight">Cricket's Pool & Spa World</h1>

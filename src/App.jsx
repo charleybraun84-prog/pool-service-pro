@@ -18,13 +18,22 @@ export default function App() {
       <div className="flex-1 md:ml-64 transition-all duration-300">
         {/* Sticky Header */}
         <header className="sticky top-0 bg-white/85 backdrop-blur-md border-b border-brand-border px-6 py-4.5 z-20 flex justify-between items-center shadow-[0_2px_8px_rgba(0,0,0,0.015)]">
-          <div>
-            <h2 className="text-base font-extrabold font-outfit text-slate-800 tracking-tight leading-tight capitalize">
-              {activeView === 'new-assessment' ? 'New Assessment' : activeView}
-            </h2>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
-              Cricket's Pool & Spa World
-            </p>
+          <div className="flex items-center space-x-3">
+            <div className="bg-white p-1 rounded-xl border border-brand-border flex items-center justify-center w-11 h-11 flex-shrink-0 shadow-sm md:hidden">
+              <img 
+                src="https://djjwaghhdhkaouarvsxp.supabase.co/storage/v1/object/sign/Cricket's/CRICKET-POOL-LOGO-fun-2.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV85YTYwMjY5Ni0yY2ZkLTQ3YTktOWQ2Ni0yZGE0MTVhZTliODYiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJDcmlja2V0J3MvQ1JJQ0tFVC1QT09MLUxPR08tZnVuLTIucG5nIiwiaWF0IjoxNzc5NDk2NzExLCJleHAiOjQ5MzMwOTY3MTF9.vifegprgcDqBIpOd7F_zEzGrO7XPMm4jY94OX9ajDBs" 
+                alt="Cricket's Pool & Spa World" 
+                className="w-full h-full object-contain"
+              />
+            </div>
+            <div>
+              <h2 className="text-base font-extrabold font-outfit text-slate-800 tracking-tight leading-tight capitalize">
+                {activeView === 'new-assessment' ? 'New Assessment' : activeView}
+              </h2>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                Cricket's Pool & Spa World
+              </p>
+            </div>
           </div>
           <div className="flex items-center space-x-2">
             <span className="text-[10px] font-bold px-2.5 py-1.5 bg-brand-blue/10 text-brand-blue rounded-lg border border-brand-blue/15">
