@@ -17,7 +17,7 @@ export default function Navigation({ activeView, setActiveView }) {
         <div className="flex items-center space-x-3 px-6 py-5 border-b border-brand-slate bg-brand-darker">
           <div className="bg-white p-1 rounded-xl flex items-center justify-center w-12 h-12 flex-shrink-0 shadow-sm">
             <img 
-              src="https://djjwaghhdhkaouarvsxp.supabase.co/storage/v1/object/sign/Cricket's/CRICKET-POOL-LOGO-fun-2.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV85YTYwMjY5Ni0yY2ZkLTQ3YTktOWQ2Ni0yZGE0MTVhZTliODYiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJDcmlja2V0J3MvQ1JJQ0tFVC1QT09MLUxPR08tZnVuLTIucG5nIiwiaWF0IjoxNzc5NDk2NzExLCJleHAiOjQ5MzMwOTY3MTF9.vifegprgcDqBIpOd7F_zEzGrO7XPMm4jY94OX9ajDBs" 
+              src="https://res.cloudinary.com/drvl3r9me/image/upload/f_auto,q_auto/CRICKET-POOL-LOGO-fun-2_ifxtqw" 
               alt="Cricket's Pool & Spa World" 
               className="w-full h-full object-contain"
             />
