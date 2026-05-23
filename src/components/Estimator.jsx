@@ -146,10 +146,10 @@ export default function Estimator() {
 
   // Generate Customer Estimate Text
   const copyText = useMemo(() => {
-    let text = `Hi! Here is your pool service estimate from Cricket's Pool & Spa World 🏊‍♂️\n\n`;
+    let text = `Hi! Here is your pool service estimate from Cricket's Pool & Spa World\n\n`;
     
     if (matchedAddress || address) {
-      text += `📍 Address: ${matchedAddress || address}\n`;
+      text += `Address: ${matchedAddress || address}\n`;
     }
     
     text += `\nService Details:\n`;
@@ -157,7 +157,7 @@ export default function Estimator() {
       text += `• Service: Routine Pool Maintenance (${poolType === 'Pool' ? 'Pool Only' : 'Pool & Spa Combo'})\n`;
       text += `• Frequency: ${frequency === 'Weekly' ? 'Weekly' : frequency === 'BiWeekly' ? 'Every other week' : 'Multiple visits per week'}\n`;
       text += `• Rate: $${maintenancePrice}.00 per visit\n`;
-      text += `• Note: Rate includes all cleaning and balancing chemicals. 👍\n`;
+      text += `• Note: Rate includes all cleaning and balancing chemicals.\n`;
     } else {
       text += `• Service: Chemical-Only Check\n`;
       text += `• Rate: $${maintenancePrice}.00 per visit\n`;
@@ -177,7 +177,7 @@ export default function Estimator() {
     }
 
     text += `\n*Please note: All estimates are subject to a final visual inspection of the pool. \n\n`;
-    text += `Let us know if you have any questions or if you'd like to get on the schedule! 😊`;
+    text += `Let us know if you have any questions or if you'd like to get on the schedule!`;
     
     return text;
   }, [serviceType, poolType, frequency, maintenancePrice, addons, address, matchedAddress]);
