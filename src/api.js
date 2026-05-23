@@ -1,6 +1,8 @@
 import Papa from 'papaparse';
 
 const SHEET_ID = '1277neWeMNuM39J1o7188vWgztj65PzDzGN2g-jLYu4g';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwJ28Mi_MLps1pzKYKMnHSGGjAwj2Aw1c2RM9qr42uNH6KQMwk76eg1XUtsp5u58bFs/exec';
+const API_TOKEN = '9517534682';
 
 export const SHEET_TABS = [
   'Route Assessments',
@@ -32,6 +34,56 @@ export async function fetchSheetData(sheetName) {
     });
   } catch (error) {
     console.error(`Failed to fetch data for ${sheetName}:`, error);
+    return [];
+  }
+}
+
+export async function fetchRepairKits() {
+  try {
+    const url = `${APPS_SCRIPT_URL}?token=${API_TOKEN}`;
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Network response was not ok');
+    
+    const data = await response.json();
+    if (data && data.error) {
+      console.error('Apps Script API Error for Repair Kits:', data.error);
+      return [];
+    }
+    
+    // Clean and validate the rows: must have a Kit (Description)
+    const validKits = (data || []).filter(kit => {
+      const desc = kit['Kit (Description)'];
+      return desc && desc.trim() !== '';
+    });
+    
+    return validKits;
+  } catch (error) {
+    console.error('Failed to fetch Repair Kits:', error);
+    return [];
+  }
+}
+
+export async function fetchRepairParts() {
+  try {
+    const url = `${APPS_SCRIPT_URL}?token=${API_TOKEN}&sheet=Parts`;
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Network response was not ok');
+    
+    const data = await response.json();
+    if (data && data.error) {
+      console.error('Apps Script API Error for Repair Parts:', data.error);
+      return [];
+    }
+    
+    // Clean and validate: must have a Part Number
+    const validParts = (data || []).filter(part => {
+      const partNo = part['Part Number'];
+      return partNo && String(partNo).trim() !== '';
+    });
+    
+    return validParts;
+  } catch (error) {
+    console.error('Failed to fetch Repair Parts:', error);
     return [];
   }
 }

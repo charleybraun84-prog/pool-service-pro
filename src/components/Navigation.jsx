@@ -1,9 +1,10 @@
-import { ClipboardList, Calculator, FileText, PlusCircle } from 'lucide-react';
+import { ClipboardList, Calculator, Wrench, FileText, PlusCircle } from 'lucide-react';
 
 export default function Navigation({ activeView, setActiveView }) {
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: ClipboardList },
-    { id: 'estimator', label: 'Estimator', icon: Calculator },
+    { id: 'estimator', label: 'Maintenance Estimator', icon: Calculator },
+    { id: 'repair-estimator', label: 'Repair Estimator', icon: Wrench },
     { id: 'operations', label: 'Operations', icon: FileText },
     { id: 'new-assessment', label: 'New Form', icon: PlusCircle },
   ];

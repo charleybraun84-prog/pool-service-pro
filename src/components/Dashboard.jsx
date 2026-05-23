@@ -13,22 +13,39 @@ export default function Dashboard() {
   const [sheetsData, setSheetsData] = useState({});
   const [loading, setLoading] = useState(true);
 
-  // Fetch sheet data for active tab
+  // Fetch sheet data for active tab and setup background polling
   useEffect(() => {
-    async function loadData() {
-      if (sheetsData[activeTab]) {
-        setLoading(false);
-        return;
-      }
+    let isMounted = true;
+
+    async function loadData(showLoading = true) {
+      if (showLoading) setLoading(true);
       
-      setLoading(true);
-      const data = await fetchSheetData(activeTab);
-      setSheetsData(prev => ({ ...prev, [activeTab]: data }));
-      setLoading(false);
+      try {
+        const data = await fetchSheetData(activeTab);
+        if (isMounted) {
+          setSheetsData(prev => ({ ...prev, [activeTab]: data }));
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error("Error polling sheet data:", error);
+        if (isMounted) setLoading(false);
+      }
     }
     
-    loadData();
-  }, [activeTab, sheetsData]);
+    // Initial fetch for the active tab (only show loading spinner if no cached data)
+    loadData(!sheetsData[activeTab]);
+
+    // Setup polling every 3 minutes
+    const intervalId = setInterval(() => {
+      loadData(false);
+    }, 3 * 60 * 1000);
+    
+    return () => {
+      isMounted = false;
+      clearInterval(intervalId);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
 
   // Refresh handler
   const handleRefresh = async () => {

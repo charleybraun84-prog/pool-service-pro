@@ -2,6 +2,7 @@ import { useState } from 'react';
 import Navigation from './components/Navigation';
 import Dashboard from './components/Dashboard';
 import Estimator from './components/Estimator';
+import RepairEstimator from './components/RepairEstimator';
 import Operations from './components/Operations';
 import NewAssessment from './components/NewAssessment';
 import InstallPrompt from './components/InstallPrompt';
@@ -28,7 +29,10 @@ export default function App() {
             </div>
             <div>
               <h2 className="text-base font-extrabold font-outfit text-slate-800 tracking-tight leading-tight capitalize">
-                {activeView === 'new-assessment' ? 'New Assessment' : activeView}
+                {activeView === 'new-assessment' ? 'New Assessment' : 
+                 activeView === 'estimator' ? 'Maintenance Estimator' : 
+                 activeView === 'repair-estimator' ? 'Repair Estimator' : 
+                 activeView}
               </h2>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
                 Cricket's Pool & Spa World
@@ -46,6 +50,7 @@ export default function App() {
         <main className="p-4 md:p-6 max-w-5xl mx-auto">
           {activeView === 'dashboard' && <Dashboard />}
           {activeView === 'estimator' && <Estimator />}
+          {activeView === 'repair-estimator' && <RepairEstimator />}
           {activeView === 'operations' && <Operations />}
           {activeView === 'new-assessment' && <NewAssessment />}
         </main>
