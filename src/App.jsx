@@ -28,7 +28,10 @@ export default function App() {
             </div>
             <div>
               <h2 className="text-base font-extrabold font-outfit text-slate-800 tracking-tight leading-tight capitalize">
-                {activeView === 'new-assessment' ? 'New Assessment' : activeView}
+                {activeView === 'new-assessment' ? 'New Assessment' : 
+                 activeView === 'estimator' ? 'Maintenance Estimator' : 
+                 activeView === 'repair-estimator' ? 'Repair Estimator' : 
+                 activeView}
               </h2>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
                 Cricket's Pool & Spa World
@@ -45,7 +48,8 @@ export default function App() {
         {/* Content View */}
         <main className="p-4 md:p-6 max-w-5xl mx-auto">
           {activeView === 'dashboard' && <Dashboard />}
-          {activeView === 'estimator' && <Estimator />}
+          {activeView === 'estimator' && <Estimator activeTab="maintenance" />}
+          {activeView === 'repair-estimator' && <Estimator activeTab="repairs" />}
           {activeView === 'operations' && <Operations />}
           {activeView === 'new-assessment' && <NewAssessment />}
         </main>
