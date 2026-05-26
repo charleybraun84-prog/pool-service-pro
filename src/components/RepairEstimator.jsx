@@ -416,6 +416,9 @@ export default function RepairEstimator() {
                         onClick={() => {
                           setActiveCategory(cat);
                           setSearchQuery('');
+                          if (cat !== 'Pump Repairs') {
+                            setActivePumpModel('All');
+                          }
                         }}
                         className={`px-3 py-1.5 rounded-lg text-xs font-bold font-outfit border transition-all cursor-pointer ${
                           activeCategory === cat
@@ -432,7 +435,7 @@ export default function RepairEstimator() {
             )}
 
             {/* Pump Model Filter Pills */}
-            {!loading && !error && (
+            {!loading && !error && activeCategory === 'Pump Repairs' && (
               <div className="space-y-2 pt-3 border-t border-slate-100">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Filter by Pump Model Compatibility</label>
                 <div className="flex flex-wrap gap-2">
