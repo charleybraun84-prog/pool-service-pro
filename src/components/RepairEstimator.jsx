@@ -11,6 +11,34 @@ export default function RepairEstimator() {
   // Search and Category states
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('All');
+  const [activePumpModel, setActivePumpModel] = useState('All');
+
+  // Pump model filter options
+  const pumpModels = ['All', 'Whisperflo', 'Challenger', 'Superflo', 'Super Pump'];
+
+  // Helper to match kit against pump models case-insensitively using keywords
+  const matchesPumpModel = (kit, model) => {
+    if (model === 'All') return true;
+    
+    const desc = (kit['Kit (Description)'] || '').toLowerCase();
+    const partsList = (kit['Parts List'] || '').toLowerCase();
+    const addOns = (kit['Add-Ons'] || '').toLowerCase();
+    const combinedText = `${desc} ${partsList} ${addOns}`;
+
+    switch (model) {
+      case 'Whisperflo':
+        // Match whisperflo and common typos like whiserflo
+        return combinedText.includes('whisperflo') || combinedText.includes('whiserflo');
+      case 'Challenger':
+        return combinedText.includes('challenger');
+      case 'Superflo':
+        return combinedText.includes('superflo');
+      case 'Super Pump':
+        return combinedText.includes('super pump') || combinedText.includes('superpump');
+      default:
+        return false;
+    }
+  };
 
   // Selection state of each part in a kit: { [kitDescription]: { [partNumber]: true/false } }
   const [selectedPartsState, setSelectedPartsState] = useState({});
@@ -24,7 +52,6 @@ export default function RepairEstimator() {
   const [customDesc, setCustomDesc] = useState('');
   const [customPrice, setCustomPrice] = useState('');
   const [customQty, setCustomQty] = useState(1);
-
   // Load kits and parts from Google Apps Script Web App
   const loadData = async (showLoading = true) => {
     if (showLoading) setLoading(true);
@@ -45,7 +72,30 @@ export default function RepairEstimator() {
   };
 
   useEffect(() => {
-    loadData();
+    let active = true;
+    const initLoad = async () => {
+      try {
+        const [kitsData, partsData] = await Promise.all([
+          fetchRepairKits(),
+          fetchRepairParts()
+        ]);
+        if (active) {
+          setKits(kitsData);
+          setParts(partsData);
+          setLoading(false);
+        }
+      } catch (err) {
+        console.error('Failed to load data on mount:', err);
+        if (active) {
+          setError('Could not retrieve data from your spreadsheet. Please verify Google Apps Script deployment settings.');
+          setLoading(false);
+        }
+      }
+    };
+    initLoad();
+    return () => {
+      active = false;
+    };
   }, []);
 
   // Safe parsing helper
@@ -156,11 +206,14 @@ export default function RepairEstimator() {
     return ['All', ...Array.from(cats)];
   }, [kits]);
 
-  // Filter kits based on active category & search query
+  // Filter kits based on active category, pump model & search query
   const filteredKits = useMemo(() => {
     let result = kits;
     if (activeCategory !== 'All') {
       result = result.filter(kit => kit.Category === activeCategory);
+    }
+    if (activePumpModel !== 'All') {
+      result = result.filter(kit => matchesPumpModel(kit, activePumpModel));
     }
     if (!searchQuery.trim()) return result;
     const query = searchQuery.toLowerCase().trim();
@@ -169,7 +222,7 @@ export default function RepairEstimator() {
       const parts = (kit['Parts List'] || '').toLowerCase();
       return desc.includes(query) || parts.includes(query);
     });
-  }, [kits, activeCategory, searchQuery]);
+  }, [kits, activeCategory, activePumpModel, searchQuery]);
 
   // Add standard kit (and its selected parts configuration) to estimate list
   const addKit = (kit) => {
@@ -374,6 +427,31 @@ export default function RepairEstimator() {
                       </button>
                     );
                   })}
+                </div>
+              </div>
+            )}
+
+            {/* Pump Model Filter Pills */}
+            {!loading && !error && (
+              <div className="space-y-2 pt-3 border-t border-slate-100">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Filter by Pump Model Compatibility</label>
+                <div className="flex flex-wrap gap-2">
+                  {pumpModels.map((model) => (
+                    <button
+                      key={model}
+                      onClick={() => {
+                        setActivePumpModel(model);
+                        setSearchQuery('');
+                      }}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold font-outfit border transition-all cursor-pointer ${
+                        activePumpModel === model
+                          ? 'bg-brand-teal border-brand-teal text-white shadow-sm'
+                          : 'bg-slate-100 border-slate-200/50 text-slate-500 hover:bg-slate-200/60 hover:text-slate-700'
+                      }`}
+                    >
+                      {model}
+                    </button>
+                  ))}
                 </div>
               </div>
             )}
