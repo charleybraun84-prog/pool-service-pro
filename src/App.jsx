@@ -20,17 +20,17 @@ export default function App() {
         <header className="sticky top-0 bg-white/85 backdrop-blur-md border-b border-brand-border px-6 py-4.5 z-20 flex justify-between items-center shadow-[0_2px_8px_rgba(0,0,0,0.015)]">
           <div className="flex items-center space-x-3">
             <div className="bg-white p-1 rounded-xl border border-brand-border flex items-center justify-center w-11 h-11 flex-shrink-0 shadow-sm md:hidden">
-              <img 
-                src="https://res.cloudinary.com/drvl3r9me/image/upload/f_auto,q_auto/CRICKET-POOL-LOGO-fun-2_ifxtqw" 
-                alt="Cricket's Pool & Spa World" 
+              <img
+                src="https://res.cloudinary.com/drvl3r9me/image/upload/f_auto,q_auto/CRICKET-POOL-LOGO-fun-2_ifxtqw"
+                alt="Cricket's Pool & Spa World"
                 className="w-full h-full object-contain"
               />
             </div>
             <div>
               <h2 className="text-base font-extrabold font-outfit text-slate-800 tracking-tight leading-tight capitalize">
-                {activeView === 'estimator' ? 'Maintenance Estimator' : 
-                 activeView === 'repair-estimator' ? 'Repair Estimator' : 
-                 activeView}
+                {activeView === 'estimator' ? 'Maintenance Estimator' :
+                  activeView === 'repair-estimator' ? 'Repair Estimator' :
+                    activeView}
               </h2>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
                 Cricket's Pool & Spa World
@@ -39,7 +39,7 @@ export default function App() {
           </div>
           <div className="flex items-center space-x-2">
             <span className="text-[10px] font-bold px-2.5 py-1.5 bg-brand-blue/10 text-brand-blue rounded-lg border border-brand-blue/15">
-              Technician Portal
+              Field Service Portal
             </span>
           </div>
         </header>

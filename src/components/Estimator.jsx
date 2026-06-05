@@ -57,6 +57,7 @@ export default function Estimator({ activeTab = 'maintenance' }) {
   const [selectedSealKit, setSelectedSealKit] = useState(null); // null | 'Go-Kit32-9' | 'none'
   const [selectedLabor, setSelectedLabor] = useState(null); // null | 'standard' | 'none'
   const [repairCopied, setRepairCopied] = useState(false);
+  const [repairWordingType, setRepairWordingType] = useState('estimate'); // 'estimate' or 'tentative'
 
   // Service Type State: 'routine' or 'chemCheck'
   const [serviceType, setServiceType] = useState('routine');
@@ -219,7 +220,7 @@ export default function Estimator({ activeTab = 'maintenance' }) {
     const laborPrice = selectedLabor === 'standard' ? REPAIR_LABOR.standard.price : 0;
     
     const taxAmount = partsSubtotal * TAX_RATE;
-    const total = partsSubtotal + laborPrice + taxAmount;
+    const total = partsSubtotal + laborPrice + taxAmount + 5; // $5 fuel surcharge
 
     return {
       partsSubtotal,
@@ -232,8 +233,12 @@ export default function Estimator({ activeTab = 'maintenance' }) {
   // Repair estimate copy text
   const repairCopyText = useMemo(() => {
     if (!repairPricing) return '';
+    const isTentative = repairWordingType === 'tentative';
 
-    let text = `Hi! Here is your pool repair estimate from Cricket's Pool & Spa World\n\n`;
+    let text = isTentative
+      ? `Hi! Here is your tentative pool repair quote from Cricket's Pool & Spa World\n\n`
+      : `Hi! Here is your pool repair estimate from Cricket's Pool & Spa World\n\n`;
+      
     text += `Service Details:\n`;
     
     if (selectedMotor !== 'none') {
@@ -252,12 +257,19 @@ export default function Estimator({ activeTab = 'maintenance' }) {
     }
     
     text += `• Sales Tax (9%): $${repairPricing.taxAmount.toFixed(2)}\n`;
-    text += `• Total Estimate: $${repairPricing.total.toFixed(2)}\n\n`;
-    text += `*Please note: All estimates are subject to a final visual inspection of the equipment. \n\n`;
-    text += `Let us know if you have any questions or if you'd like to approve this estimate!`;
+    
+    if (isTentative) {
+      text += `• Total Tentative Quote: $${repairPricing.total.toFixed(2)}\n\n`;
+      text += `*Please note: This is a tentative quote for a suspected equipment failure, subject to a final visual inspection and diagnostic verification of the equipment. \n\n`;
+    } else {
+      text += `• Total Estimate: $${repairPricing.total.toFixed(2)}\n\n`;
+      text += `*Please note: All estimates are subject to a final visual inspection of the equipment. \n\n`;
+    }
+    
+    text += `Let us know if you have any questions or if you'd like to approve this ${isTentative ? 'tentative quote' : 'estimate'}!`;
     
     return text;
-  }, [selectedMotor, selectedSealKit, selectedLabor, repairPricing]);
+  }, [selectedMotor, selectedSealKit, selectedLabor, repairPricing, repairWordingType]);
 
   const handleCopyRepair = () => {
     navigator.clipboard.writeText(repairCopyText);
@@ -1000,11 +1012,32 @@ export default function Estimator({ activeTab = 'maintenance' }) {
               </div>
             )}
 
+            {/* Estimate Wording Dropdown */}
+            <div className="bg-white p-5 rounded-2xl border border-brand-border shadow-premium flex flex-col space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                  Estimate Wording Type
+                </label>
+                <select
+                  className="block w-full px-3 py-2 border border-brand-border rounded-xl bg-slate-50 focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue text-xs text-slate-800 transition duration-150 cursor-pointer font-medium"
+                  value={repairWordingType}
+                  onChange={(e) => setRepairWordingType(e.target.value)}
+                >
+                  <option value="estimate">Standard Estimate</option>
+                  <option value="tentative">Tentative Quote (Suspected Failure)</option>
+                </select>
+              </div>
+            </div>
+
             {/* Estimate generator & clipboard copy */}
             <div className="bg-white p-5 rounded-2xl border border-brand-border shadow-premium flex flex-col space-y-4">
               <div>
-                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider font-outfit">Repair Estimate Text</h4>
-                <p className="text-[10px] text-slate-400 mt-0.5">Ready to copy and send to the customer.</p>
+                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider font-outfit">
+                  {repairWordingType === 'tentative' ? 'Repair Tentative Quote Text' : 'Repair Estimate Text'}
+                </h4>
+                <p className="text-[10px] text-slate-400 mt-0.5">
+                  {repairWordingType === 'tentative' ? 'Ready to copy and send to the customer as a tentative quote.' : 'Ready to copy and send to the customer.'}
+                </p>
               </div>
 
               <textarea
@@ -1033,7 +1066,7 @@ export default function Estimator({ activeTab = 'maintenance' }) {
                 ) : (
                   <>
                     <Copy className="w-4 h-4" />
-                    <span>Copy to Clipboard</span>
+                    <span>Copy Repair {repairWordingType === 'tentative' ? 'Tentative Quote' : 'Estimate'}</span>
                   </>
                 )}
               </button>

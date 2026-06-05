@@ -54,6 +54,7 @@ export default function RepairEstimator() {
   // Estimate cart state
   const [selectedItems, setSelectedItems] = useState([]);
   const [copied, setCopied] = useState(false);
+  const [wordingType, setWordingType] = useState('estimate'); // 'estimate' or 'tentative'
 
   // Custom Item Form states
   const [showCustomForm, setShowCustomForm] = useState(false);
@@ -466,13 +467,19 @@ export default function RepairEstimator() {
   // Estimate calculations
   const grandTotal = useMemo(() => {
     const itemsTotal = selectedItems.reduce((acc, item) => acc + (item.totalPrice * item.quantity), 0);
-    return itemsTotal + (includeDiagnosticFee ? 75 : 0);
+    if (itemsTotal === 0) return 0;
+    return itemsTotal + (includeDiagnosticFee ? 75 : 0) + 5; // $5 fuel surcharge
   }, [selectedItems, includeDiagnosticFee]);
 
   // Generate customer estimate copy-paste string
   const copyText = useMemo(() => {
     if (selectedItems.length === 0) return '';
-    let text = `Hi! Here is your pool repair estimate from Cricket's Pool & Spa World\n\n`;
+    const isTentative = wordingType === 'tentative';
+    
+    let text = isTentative
+      ? `Hi! Here is your tentative pool repair quote from Cricket's Pool & Spa World\n\n`
+      : `Hi! Here is your pool repair estimate from Cricket's Pool & Spa World\n\n`;
+      
     text += `Proposed Repairs:\n`;
     
     selectedItems.forEach((item) => {
@@ -481,11 +488,17 @@ export default function RepairEstimator() {
       text += `• ${item.description}${qtyStr}: $${itemPrice.toFixed(2)}\n`;
     });
 
-    text += `\nTotal Estimated Price: $${grandTotal.toFixed(2)}\n\n`;
-    text += `*Please note: All estimates are subject to a final visual inspection of the pool. Tax is not included in this estimate.\n\n`;
+    if (isTentative) {
+      text += `\nTotal Tentative Quote: $${grandTotal.toFixed(2)}\n\n`;
+      text += `*Please note: This is a tentative quote for a suspected equipment failure, subject to a final visual inspection and diagnostic verification. Tax is not included in this quote.\n\n`;
+    } else {
+      text += `\nTotal Estimated Price: $${grandTotal.toFixed(2)}\n\n`;
+      text += `*Please note: All estimates are subject to a final visual inspection of the pool. Tax is not included in this estimate.\n\n`;
+    }
+    
     text += `Let us know if you have any questions or if you'd like to get on the schedule!`;
     return text;
-  }, [selectedItems, grandTotal]);
+  }, [selectedItems, grandTotal, wordingType]);
 
   const handleCopy = () => {
     if (!copyText) return;
@@ -994,10 +1007,27 @@ export default function RepairEstimator() {
                   </div>
                 </div>
 
+                {/* Estimate Wording Dropdown */}
+                <div className="space-y-1.5 border-t border-slate-100 pt-4">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Estimate Wording Type
+                  </label>
+                  <select
+                    className="block w-full px-3 py-2 border border-brand-border rounded-xl bg-slate-50 focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue text-xs text-slate-800 transition duration-150 cursor-pointer font-medium"
+                    value={wordingType}
+                    onChange={(e) => setWordingType(e.target.value)}
+                  >
+                    <option value="estimate">Standard Estimate</option>
+                    <option value="tentative">Tentative Quote (Suspected Failure)</option>
+                  </select>
+                </div>
+
                 {/* Copy Text Area */}
                 <div className="space-y-2 border-t border-slate-100 pt-4">
                   <div className="flex justify-between items-center">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Preview Estimate Text</span>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                      Preview {wordingType === 'tentative' ? 'Tentative Quote' : 'Estimate'} Text
+                    </span>
                   </div>
                   <textarea
                     readOnly
@@ -1021,7 +1051,7 @@ export default function RepairEstimator() {
                     ) : (
                       <>
                         <Copy className="w-4 h-4" />
-                        <span>Copy Repair Estimate</span>
+                        <span>Copy Repair {wordingType === 'tentative' ? 'Tentative Quote' : 'Estimate'}</span>
                       </>
                     )}
                   </button>
