@@ -88,6 +88,35 @@ export async function fetchRepairParts() {
   }
 }
 
+export async function fetchCategorySheet(categoryName) {
+  try {
+    const url = `${APPS_SCRIPT_URL}?token=${API_TOKEN}&sheet=${encodeURIComponent(categoryName)}`;
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Network response was not ok');
+    
+    const data = await response.json();
+    if (data && data.error) {
+      // Gracefully handle missing sheets (fallback will be used)
+      return null;
+    }
+    
+    const validKits = (data || []).filter(kit => {
+      const desc = kit['Kit (Description)'];
+      return desc && desc.trim() !== '';
+    });
+    
+    // Ensure every returned kit has the correct Category assigned
+    return validKits.map(kit => ({
+      ...kit,
+      Category: categoryName
+    }));
+  } catch (error) {
+    console.error(`Failed to fetch category sheet ${categoryName}:`, error);
+    return null;
+  }
+}
+
+
 // Track the timestamp of the last Nominatim request to enforce the 1 request/sec rate limit dynamically
 let lastGeocodeTime = 0;
 

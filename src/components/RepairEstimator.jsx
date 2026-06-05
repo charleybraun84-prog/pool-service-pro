@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Wrench, Search, Plus, Minus, Trash2, Copy, Check, RefreshCw, AlertTriangle } from 'lucide-react';
-import { fetchRepairKits, fetchRepairParts } from '../api';
+import { fetchRepairKits, fetchRepairParts, fetchCategorySheet } from '../api';
 
 export default function RepairEstimator() {
   const [kits, setKits] = useState([]);
@@ -12,6 +12,17 @@ export default function RepairEstimator() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState('All');
   const [activePumpModel, setActivePumpModel] = useState('All');
+
+  // STANDARD KITS Selection state: { [kitDescription]: { [partNumber]: true/false } }
+  const [selectedPartsState, setSelectedPartsState] = useState({});
+
+  // PUMP KITS Selection state
+  const [selectedSealKits, setSelectedSealKits] = useState({});
+  const [selectedAddons, setSelectedAddons] = useState({});
+  const [motorChecked, setMotorChecked] = useState({});
+
+  // Diagnostic Fee checkbox
+  const [includeDiagnosticFee, setIncludeDiagnosticFee] = useState(false);
 
   // Pump model filter options
   const pumpModels = ['All', 'Whisperflo', 'Challenger', 'Superflo', 'Super Pump'];
@@ -40,9 +51,6 @@ export default function RepairEstimator() {
     }
   };
 
-  // Selection state of each part in a kit: { [kitDescription]: { [partNumber]: true/false } }
-  const [selectedPartsState, setSelectedPartsState] = useState({});
-
   // Estimate cart state
   const [selectedItems, setSelectedItems] = useState([]);
   const [copied, setCopied] = useState(false);
@@ -52,16 +60,42 @@ export default function RepairEstimator() {
   const [customDesc, setCustomDesc] = useState('');
   const [customPrice, setCustomPrice] = useState('');
   const [customQty, setCustomQty] = useState(1);
+
   // Load kits and parts from Google Apps Script Web App
   const loadData = async (showLoading = true) => {
     if (showLoading) setLoading(true);
     setError(null);
     try {
-      const [kitsData, partsData] = await Promise.all([
+      const [masterKitsData, partsData] = await Promise.all([
         fetchRepairKits(),
         fetchRepairParts()
       ]);
-      setKits(kitsData);
+      
+      // Extract unique categories from master sheet
+      const uniqueCategories = Array.from(new Set(masterKitsData.map(k => k.Category).filter(Boolean)));
+      
+      // Autonomously attempt to fetch dedicated sheets for all categories
+      const categorySheetsResults = await Promise.all(
+        uniqueCategories.map(cat => fetchCategorySheet(cat))
+      );
+      
+      // Merge results, preferring dedicated sheets over master sheet
+      let finalKits = [];
+      uniqueCategories.forEach((cat, index) => {
+        const dedicatedSheetData = categorySheetsResults[index];
+        if (dedicatedSheetData !== null && dedicatedSheetData.length > 0) {
+          finalKits = [...finalKits, ...dedicatedSheetData];
+        } else {
+          const fallbackData = masterKitsData.filter(k => k.Category === cat);
+          finalKits = [...finalKits, ...fallbackData];
+        }
+      });
+      
+      // Include any kits without a category just in case
+      const noCategoryKits = masterKitsData.filter(k => !k.Category);
+      finalKits = [...noCategoryKits, ...finalKits];
+
+      setKits(finalKits);
       setParts(partsData);
       setLoading(false);
     } catch (err) {
@@ -72,31 +106,80 @@ export default function RepairEstimator() {
   };
 
   useEffect(() => {
-    let active = true;
-    const initLoad = async () => {
-      try {
-        const [kitsData, partsData] = await Promise.all([
-          fetchRepairKits(),
-          fetchRepairParts()
-        ]);
-        if (active) {
-          setKits(kitsData);
-          setParts(partsData);
-          setLoading(false);
-        }
-      } catch (err) {
-        console.error('Failed to load data on mount:', err);
-        if (active) {
-          setError('Could not retrieve data from your spreadsheet. Please verify Google Apps Script deployment settings.');
-          setLoading(false);
-        }
-      }
-    };
-    initLoad();
-    return () => {
-      active = false;
-    };
+    loadData();
   }, []);
+
+  // Find part helper
+  const findPart = (partNumber) => {
+    return parts.find(
+      dbPart => String(dbPart['Part Number']).trim().toLowerCase() === String(partNumber).trim().toLowerCase()
+    );
+  };
+
+  // --- PUMP KITS LOGIC ---
+
+  const availableSealKits = useMemo(() => {
+    return parts.filter(p => {
+      if (p.Category !== 'Pump Parts') return false;
+      const desc = (p.Description || '').toLowerCase();
+      const num = (p['Part Number'] || '').toLowerCase();
+      return desc.includes('seal') || desc.includes('go kit') || num.includes('go-kit') || num.includes('ps');
+    });
+  }, [parts]);
+
+  // Initialize pump kit selections
+  useEffect(() => {
+    const pumpKits = kits.filter(k => k.Category === 'Pump Repairs');
+    if (pumpKits.length > 0 && availableSealKits.length > 0) {
+      setSelectedSealKits(prev => {
+        const next = { ...prev };
+        let changed = false;
+        pumpKits.forEach(kit => {
+          const kitDesc = kit['Kit (Description)'];
+          if (!next[kitDesc]) {
+            const kitSealKitsStr = kit['Seal Kits'] || '';
+            const kitTokens = kitSealKitsStr.split(',').map(p => p.trim()).filter(Boolean);
+            
+            if (kitTokens.length > 0) {
+              next[kitDesc] = kitTokens[0];
+            } else if (availableSealKits.length > 0) {
+              next[kitDesc] = availableSealKits[0]['Part Number']; // Fallback
+            }
+            changed = true;
+          }
+        });
+        return changed ? next : prev;
+      });
+    }
+  }, [kits, availableSealKits]);
+
+  const togglePumpAddon = (kitDesc, addonKey) => {
+    setSelectedAddons(prev => {
+      const kitState = prev[kitDesc] || { impellers: false, sealPlate: false };
+      return {
+        ...prev,
+        [kitDesc]: {
+          ...kitState,
+          [addonKey]: !kitState[addonKey]
+        }
+      };
+    });
+  };
+
+  const toggleMotor = (kitDesc) => {
+    setMotorChecked(prev => {
+      const current = prev[kitDesc] !== undefined ? prev[kitDesc] : true;
+      return { ...prev, [kitDesc]: !current };
+    });
+  };
+
+  const getKitMotor = (kit) => {
+    const motorToken = kit['Motor'];
+    if (!motorToken) return null;
+    const motorPart = findPart(motorToken);
+    if (motorPart) return motorPart;
+    return { 'Part Number': motorToken, 'Description': motorToken, 'Retail Price': 0 };
+  };
 
   // Safe parsing helper
   const parseNum = (val) => {
@@ -187,16 +270,38 @@ export default function RepairEstimator() {
   const calculateKitPrice = (kit) => {
     const kitDesc = kit['Kit (Description)'];
     const labor = parseNum(kit['Labor']);
-    const kitParts = getKitParts(kit);
-    
-    // Filter down to only checked parts
-    const activeParts = kitParts.filter(
-      part => isPartChecked(kitDesc, part)
-    );
+    let partsCost = 0;
 
-    const partsCost = activeParts.reduce((acc, part) => acc + (part.retailPrice * part.quantity), 0);
-    const taxCost = partsCost * 0.09; // 9.0% sales tax on parts
+    if (kit.Category === 'Pump Repairs') {
+      const motor = getKitMotor(kit);
+      const isMotorEnabled = motorChecked[kitDesc] !== false; // defaults to true
+      const motorCost = (motor && isMotorEnabled) ? parseNum(motor['Retail Price']) : 0;
+      
+      const selectedSealKitId = selectedSealKits[kitDesc];
+      const sealKit = findPart(selectedSealKitId);
+      const sealKitCost = sealKit ? parseNum(sealKit['Retail Price']) : 0;
+      
+      const addonsState = selectedAddons[kitDesc] || { impellers: false, sealPlate: false };
+      
+      let addonsCost = 0;
+      if (selectedSealKitId?.toUpperCase() === 'GO-KIT32-9') {
+        if (addonsState.impellers && kit['WF Impellers']) {
+          const impPart = findPart(kit['WF Impellers']);
+          if (impPart) addonsCost += parseNum(impPart['Retail Price']);
+        }
+        if (addonsState.sealPlate && kit['WF Seal Plate']) {
+          const spPart = findPart(kit['WF Seal Plate']);
+          if (spPart) addonsCost += parseNum(spPart['Retail Price']);
+        }
+      }
+      partsCost = motorCost + sealKitCost + addonsCost;
+    } else {
+      const kitParts = getKitParts(kit);
+      const activeParts = kitParts.filter(part => isPartChecked(kitDesc, part));
+      partsCost = activeParts.reduce((acc, part) => acc + (part.retailPrice * part.quantity), 0);
+    }
     
+    const taxCost = 0; // Tax is no longer included in estimate
     return labor + partsCost + taxCost;
   };
 
@@ -227,37 +332,65 @@ export default function RepairEstimator() {
   // Add standard kit (and its selected parts configuration) to estimate list
   const addKit = (kit) => {
     const kitDesc = kit['Kit (Description)'];
-    const kitParts = getKitParts(kit);
-    
-    // Filter down to only checked parts
-    const activeParts = kitParts.filter(
-      part => isPartChecked(kitDesc, part)
-    );
-
     const labor = parseNum(kit['Labor']);
-    const partsCost = activeParts.reduce((acc, part) => acc + (part.retailPrice * part.quantity), 0);
-    const taxCost = partsCost * 0.09;
+    let partsCost = 0;
+    let partsListForSignature = [];
+    let partsSummary = '';
+
+    if (kit.Category === 'Pump Repairs') {
+      const motor = getKitMotor(kit);
+      const isMotorEnabled = motorChecked[kitDesc] !== false;
+      const selectedSealKitId = selectedSealKits[kitDesc];
+      const sealKit = findPart(selectedSealKitId);
+      const addonsState = selectedAddons[kitDesc] || { impellers: false, sealPlate: false };
+      
+      const activeParts = [];
+      if (motor && isMotorEnabled) activeParts.push(motor);
+      if (sealKit) activeParts.push(sealKit);
+      
+      if (selectedSealKitId?.toUpperCase() === 'GO-KIT32-9') {
+        if (addonsState.impellers && kit['WF Impellers']) {
+          const impPart = findPart(kit['WF Impellers']);
+          if (impPart) activeParts.push(impPart);
+        }
+        if (addonsState.sealPlate && kit['WF Seal Plate']) {
+          const spPart = findPart(kit['WF Seal Plate']);
+          if (spPart) activeParts.push(spPart);
+        }
+      }
+
+      partsCost = activeParts.reduce((acc, part) => acc + parseNum(part['Retail Price']), 0);
+      partsListForSignature = activeParts.map(p => p['Part Number']);
+      partsSummary = activeParts.map(p => p.Description || p['Part Number']).join(', ');
+      
+    } else {
+      const kitParts = getKitParts(kit);
+      const activeParts = kitParts.filter(part => isPartChecked(kitDesc, part));
+      partsCost = activeParts.reduce((acc, part) => acc + (part.retailPrice * part.quantity), 0);
+      partsListForSignature = activeParts.map(p => p.partNumber);
+      partsSummary = activeParts.map(p => `${p.description} (x${p.quantity})`).join(', ');
+    }
+
+    const taxCost = 0; // Tax is no longer included in estimate
     const totalPrice = labor + partsCost + taxCost;
 
-    // Construct a descriptive name showing selected parts
     let description = kitDesc;
-    if (activeParts.length > 0) {
-      const partsSummary = activeParts.map(p => `${p.description} (x${p.quantity})`).join(', ');
+    if (partsSummary) {
       description = `${kitDesc} (incl: ${partsSummary})`;
-    } else if (kitParts.length > 0) {
+    } else if (kit.Category !== 'Pump Repairs' && getKitParts(kit).length > 0) {
       description = `${kitDesc} (Labor only)`;
     }
 
     setSelectedItems(prev => {
       // Build a unique ID for this kit configuration based on which parts are selected
-      const partsSignature = activeParts.map(p => p.partNumber).sort().join('-');
+      const partsSignature = partsListForSignature.sort().join('-');
       const selectionId = `${kitDesc}-${partsSignature}`;
 
       const existing = prev.find(item => item.id === selectionId);
       if (existing) {
         return prev.map(item => 
           item.id === selectionId
-            ? { ...item, quantity: item.quantity + 1 }
+             ? { ...item, quantity: item.quantity + 1 }
             : item
         );
       }
@@ -332,8 +465,9 @@ export default function RepairEstimator() {
 
   // Estimate calculations
   const grandTotal = useMemo(() => {
-    return selectedItems.reduce((acc, item) => acc + (item.totalPrice * item.quantity), 0);
-  }, [selectedItems]);
+    const itemsTotal = selectedItems.reduce((acc, item) => acc + (item.totalPrice * item.quantity), 0);
+    return itemsTotal + (includeDiagnosticFee ? 75 : 0);
+  }, [selectedItems, includeDiagnosticFee]);
 
   // Generate customer estimate copy-paste string
   const copyText = useMemo(() => {
@@ -348,7 +482,7 @@ export default function RepairEstimator() {
     });
 
     text += `\nTotal Estimated Price: $${grandTotal.toFixed(2)}\n\n`;
-    text += `*Please note: All estimates are subject to a final visual inspection of the pool. \n\n`;
+    text += `*Please note: All estimates are subject to a final visual inspection of the pool. Tax is not included in this estimate.\n\n`;
     text += `Let us know if you have any questions or if you'd like to get on the schedule!`;
     return text;
   }, [selectedItems, grandTotal]);
@@ -530,96 +664,226 @@ export default function RepairEstimator() {
                     </div>
 
                     {/* Checkable Parts List from Parts Tab */}
-                    {kitParts.length > 0 && (
+                    {kit.Category === 'Pump Repairs' ? (
                       <div className="space-y-2.5 border-t border-slate-100 pt-3.5 mt-1">
-                        {/* Included Base Parts (checked by default) */}
-                        {kitParts.some(p => !p.isAddon) && (
+                        {/* 1. Included Motor */}
+                        {getKitMotor(kit) && (() => {
+                          const motor = getKitMotor(kit);
+                          const motorPrice = parseNum(motor['Retail Price']) * 1.09;
+                          const isMotorEnabled = motorChecked[kitDesc] !== false;
+                          
+                          return (
+                            <div className="space-y-1.5">
+                              <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest block">
+                                Included Motor:
+                              </span>
+                              <label 
+                                className={`flex items-center justify-between p-2.5 rounded-xl border text-xs font-semibold cursor-pointer transition-all ${
+                                  isMotorEnabled 
+                                    ? 'bg-brand-blue/5 border-brand-blue/20 text-slate-800' 
+                                    : 'bg-slate-50/50 border-slate-200 text-slate-400 hover:bg-slate-100/50'
+                                }`}
+                              >
+                                <div className="flex items-center space-x-2.5 min-w-0">
+                                  <input
+                                    type="checkbox"
+                                    checked={isMotorEnabled}
+                                    onChange={() => toggleMotor(kitDesc)}
+                                    className="rounded border-slate-300 text-brand-blue focus:ring-brand-blue h-4 w-4 cursor-pointer"
+                                  />
+                                  <div className="flex flex-col min-w-0">
+                                    <span className="truncate">{motor.Description || motor['Part Number']}</span>
+                                    <span className="text-[9px] font-bold text-slate-400 mt-0.5">
+                                      Part No: {motor['Part Number']}
+                                    </span>
+                                  </div>
+                                </div>
+                                <span className={`text-[10px] font-extrabold ml-2 ${isMotorEnabled ? 'text-brand-blue' : 'text-slate-400'}`}>
+                                  ${motorPrice > 0 ? motorPrice.toFixed(2) : '0.00'}
+                                </span>
+                              </label>
+                            </div>
+                          );
+                        })()}
+
+                        {/* 2. Select Seal Kit Dropdown */}
+                        {kit['Seal Kits'] && (
                           <div className="space-y-1.5">
                             <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest block">
-                              Included Base Parts (checked by default):
+                              Select Seal Kit:
                             </span>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                              {kitParts.filter(p => !p.isAddon).map((part) => {
-                                const isChecked = isPartChecked(kitDesc, part);
-                                const totalPartPrice = (part.retailPrice * part.quantity) * 1.09;
-                                
+                            <select
+                              className="block w-full px-3 py-2 border border-brand-border rounded-xl bg-slate-50 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue text-xs text-slate-800 transition duration-150 cursor-pointer"
+                              value={selectedSealKits[kitDesc] || ''}
+                              onChange={(e) => setSelectedSealKits(prev => ({ ...prev, [kitDesc]: e.target.value }))}
+                            >
+                              <option value="" disabled>Select a Seal Kit</option>
+                              {kit['Seal Kits'].split(',').map(token => token.trim()).filter(Boolean).map(skToken => {
+                                const sk = findPart(skToken) || { 'Part Number': skToken, Description: skToken, 'Retail Price': 0 };
+                                const skPrice = parseNum(sk['Retail Price']) * 1.09;
                                 return (
-                                  <label 
-                                    key={part.partNumber} 
-                                    className={`flex items-center justify-between p-2.5 rounded-xl border text-xs font-semibold cursor-pointer transition-all ${
-                                      isChecked 
-                                        ? 'bg-brand-blue/5 border-brand-blue/20 text-slate-800' 
-                                        : 'bg-slate-50/50 border-slate-200 text-slate-400 hover:bg-slate-100/50'
-                                    }`}
-                                  >
-                                    <div className="flex items-center space-x-2.5 min-w-0">
-                                      <input
-                                        type="checkbox"
-                                        checked={isChecked}
-                                        onChange={() => togglePart(kitDesc, part)}
-                                        className="rounded border-slate-300 text-brand-blue focus:ring-brand-blue h-4 w-4 cursor-pointer"
-                                      />
-                                      <div className="flex flex-col min-w-0">
-                                        <span className="truncate">{part.description}</span>
-                                        <span className="text-[9px] font-bold text-slate-400 mt-0.5">
-                                          Part No: {part.partNumber} {part.quantity > 1 && `(x${part.quantity})`}
-                                        </span>
-                                      </div>
-                                    </div>
-                                    <span className={`text-[10px] font-extrabold ml-2 ${isChecked ? 'text-brand-blue' : 'text-slate-400'}`}>
-                                      ${totalPartPrice > 0 ? totalPartPrice.toFixed(2) : '0.00'}
-                                    </span>
-                                  </label>
+                                  <option key={sk['Part Number']} value={sk['Part Number']}>
+                                    {sk.Description} ({sk['Part Number']}) - ${skPrice.toFixed(2)}
+                                  </option>
                                 );
                               })}
-                            </div>
+                            </select>
                           </div>
                         )}
 
-                        {/* Optional Add-on Parts (unchecked by default) */}
-                        {kitParts.some(p => p.isAddon) && (
-                          <div className="space-y-1.5 pt-1">
-                            <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest block">
-                              Optional Add-on Parts (unchecked by default):
-                            </span>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                              {kitParts.filter(p => p.isAddon).map((part) => {
-                                const isChecked = isPartChecked(kitDesc, part);
-                                const totalPartPrice = (part.retailPrice * part.quantity) * 1.09;
-                                
-                                return (
-                                  <label 
-                                    key={part.partNumber} 
-                                    className={`flex items-center justify-between p-2.5 rounded-xl border text-xs font-semibold cursor-pointer transition-all ${
+                        {/* 3. Optional Add-ons for GO-KIT32-9 */}
+                        {selectedSealKits[kitDesc]?.toUpperCase() === 'GO-KIT32-9' && (() => {
+                          const addonsState = selectedAddons[kitDesc] || { impellers: false, sealPlate: false };
+                          return (
+                            <div className="space-y-1.5 pt-2 border-t border-slate-100 mt-2">
+                              <span className="text-[9px] font-extrabold text-brand-teal uppercase tracking-widest block">
+                                Optional Add-ons for {selectedSealKits[kitDesc]}:
+                              </span>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                {kit['WF Impellers'] && (() => {
+                                  const impPart = findPart(kit['WF Impellers']);
+                                  const isChecked = addonsState.impellers;
+                                  const price = (parseNum(impPart ? impPart['Retail Price'] : 0) * 1.09);
+                                  return (
+                                    <label className={`flex items-center justify-between p-2.5 rounded-xl border text-xs font-semibold cursor-pointer transition-all ${
                                       isChecked 
                                         ? 'bg-brand-teal/5 border-brand-teal/20 text-slate-800' 
                                         : 'bg-slate-50/50 border-slate-200 text-slate-400 hover:bg-slate-100/50'
-                                    }`}
-                                  >
-                                    <div className="flex items-center space-x-2.5 min-w-0">
-                                      <input
-                                        type="checkbox"
-                                        checked={isChecked}
-                                        onChange={() => togglePart(kitDesc, part)}
-                                        className="rounded border-slate-300 text-brand-teal focus:ring-brand-teal h-4 w-4 cursor-pointer"
-                                      />
-                                      <div className="flex flex-col min-w-0">
-                                        <span className="truncate">{part.description}</span>
-                                        <span className="text-[9px] font-bold text-slate-400 mt-0.5">
-                                          Part No: {part.partNumber} {part.quantity > 1 && `(x${part.quantity})`}
-                                        </span>
+                                    }`}>
+                                      <div className="flex items-center space-x-2.5 min-w-0">
+                                        <input type="checkbox" checked={isChecked} onChange={() => togglePumpAddon(kitDesc, 'impellers')} className="rounded border-slate-300 text-brand-teal focus:ring-brand-teal h-4 w-4 cursor-pointer" />
+                                        <div className="flex flex-col min-w-0">
+                                          <span className="truncate">WF Impellers</span>
+                                          <span className="text-[9px] font-bold text-slate-400 mt-0.5">Part No: {kit['WF Impellers']}</span>
+                                        </div>
                                       </div>
-                                    </div>
-                                    <span className={`text-[10px] font-extrabold ml-2 ${isChecked ? 'text-brand-teal font-bold' : 'text-slate-400'}`}>
-                                      ${totalPartPrice > 0 ? totalPartPrice.toFixed(2) : '0.00'}
-                                    </span>
-                                  </label>
-                                );
-                              })}
+                                      <span className={`text-[10px] font-extrabold ml-2 ${isChecked ? 'text-brand-teal font-bold' : 'text-slate-400'}`}>
+                                        ${price.toFixed(2)}
+                                      </span>
+                                    </label>
+                                  );
+                                })()}
+                                
+                                {kit['WF Seal Plate'] && (() => {
+                                  const spPart = findPart(kit['WF Seal Plate']);
+                                  const isChecked = addonsState.sealPlate;
+                                  const price = (parseNum(spPart ? spPart['Retail Price'] : 0) * 1.09);
+                                  return (
+                                    <label className={`flex items-center justify-between p-2.5 rounded-xl border text-xs font-semibold cursor-pointer transition-all ${
+                                      isChecked 
+                                        ? 'bg-brand-teal/5 border-brand-teal/20 text-slate-800' 
+                                        : 'bg-slate-50/50 border-slate-200 text-slate-400 hover:bg-slate-100/50'
+                                    }`}>
+                                      <div className="flex items-center space-x-2.5 min-w-0">
+                                        <input type="checkbox" checked={isChecked} onChange={() => togglePumpAddon(kitDesc, 'sealPlate')} className="rounded border-slate-300 text-brand-teal focus:ring-brand-teal h-4 w-4 cursor-pointer" />
+                                        <div className="flex flex-col min-w-0">
+                                          <span className="truncate">WF Seal Plate</span>
+                                          <span className="text-[9px] font-bold text-slate-400 mt-0.5">Part No: {kit['WF Seal Plate']}</span>
+                                        </div>
+                                      </div>
+                                      <span className={`text-[10px] font-extrabold ml-2 ${isChecked ? 'text-brand-teal font-bold' : 'text-slate-400'}`}>
+                                        ${price.toFixed(2)}
+                                      </span>
+                                    </label>
+                                  );
+                                })()}
+                              </div>
                             </div>
-                          </div>
-                        )}
+                          );
+                        })()}
                       </div>
+                    ) : (
+                      kitParts.length > 0 && (
+                        <div className="space-y-2.5 border-t border-slate-100 pt-3.5 mt-1">
+                          {/* Included Base Parts (checked by default) */}
+                          {kitParts.some(p => !p.isAddon) && (
+                            <div className="space-y-1.5">
+                              <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest block">
+                                Included Base Parts (checked by default):
+                              </span>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                {kitParts.filter(p => !p.isAddon).map((part) => {
+                                  const isChecked = isPartChecked(kitDesc, part);
+                                  const totalPartPrice = (part.retailPrice * part.quantity) * 1.09;
+                                  
+                                  return (
+                                    <label 
+                                      key={part.partNumber} 
+                                      className={`flex items-center justify-between p-2.5 rounded-xl border text-xs font-semibold cursor-pointer transition-all ${
+                                        isChecked 
+                                          ? 'bg-brand-blue/5 border-brand-blue/20 text-slate-800' 
+                                          : 'bg-slate-50/50 border-slate-200 text-slate-400 hover:bg-slate-100/50'
+                                      }`}
+                                    >
+                                      <div className="flex items-center space-x-2.5 min-w-0">
+                                        <input
+                                          type="checkbox"
+                                          checked={isChecked}
+                                          onChange={() => togglePart(kitDesc, part)}
+                                          className="rounded border-slate-300 text-brand-blue focus:ring-brand-blue h-4 w-4 cursor-pointer"
+                                        />
+                                        <div className="flex flex-col min-w-0">
+                                          <span className="truncate">{part.description}</span>
+                                          <span className="text-[9px] font-bold text-slate-400 mt-0.5">
+                                            Part No: {part.partNumber} {part.quantity > 1 && `(x${part.quantity})`}
+                                          </span>
+                                        </div>
+                                      </div>
+                                      <span className={`text-[10px] font-extrabold ml-2 ${isChecked ? 'text-brand-blue' : 'text-slate-400'}`}>
+                                        ${totalPartPrice > 0 ? totalPartPrice.toFixed(2) : '0.00'}
+                                      </span>
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Optional Add-on Parts (unchecked by default) */}
+                          {kitParts.some(p => p.isAddon) && (
+                            <div className="space-y-1.5 pt-1">
+                              <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest block">
+                                Optional Add-on Parts (unchecked by default):
+                              </span>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                {kitParts.filter(p => p.isAddon).map((part) => {
+                                  const isChecked = isPartChecked(kitDesc, part);
+                                  const totalPartPrice = (part.retailPrice * part.quantity) * 1.09;
+                                  
+                                  return (
+                                    <label 
+                                      key={part.partNumber} 
+                                      className={`flex items-center justify-between p-2.5 rounded-xl border text-xs font-semibold cursor-pointer transition-all ${
+                                        isChecked 
+                                          ? 'bg-brand-teal/5 border-brand-teal/20 text-slate-800' 
+                                          : 'bg-slate-50/50 border-slate-200 text-slate-400 hover:bg-slate-100/50'
+                                      }`}
+                                    >
+                                      <div className="flex items-center space-x-2.5 min-w-0">
+                                        <input
+                                          type="checkbox"
+                                          checked={isChecked}
+                                          onChange={() => togglePart(kitDesc, part)}
+                                          className="rounded border-slate-300 text-brand-teal focus:ring-brand-teal h-4 w-4 cursor-pointer"
+                                        />
+                                        <div className="flex flex-col min-w-0">
+                                          <span className="truncate">{part.description}</span>
+                                          <span className="text-[9px] font-bold text-slate-400 mt-0.5">
+                                            Part No: {part.partNumber} {part.quantity > 1 && `(x${part.quantity})`}
+                                          </span>
+                                        </div>
+                                      </div>
+                                      <span className={`text-[10px] font-extrabold ml-2 ${isChecked ? 'text-brand-teal font-bold' : 'text-slate-400'}`}>
+                                        ${totalPartPrice > 0 ? totalPartPrice.toFixed(2) : '0.00'}
+                                      </span>
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )
                     )}
                   </div>
                 );
@@ -696,6 +960,30 @@ export default function RepairEstimator() {
                       </div>
                     );
                   })}
+                </div>
+
+                {/* Diagnostic Fee Toggle */}
+                <div className="border-t border-slate-100 pt-4">
+                  <label 
+                    className={`flex items-center justify-between p-2.5 rounded-xl border text-xs font-semibold cursor-pointer transition-all ${
+                      includeDiagnosticFee 
+                        ? 'bg-brand-blue/5 border-brand-blue/20 text-slate-800' 
+                        : 'bg-slate-50/50 border-slate-200 text-slate-400 hover:bg-slate-100/50'
+                    }`}
+                  >
+                    <div className="flex items-center space-x-2.5 min-w-0">
+                      <input
+                        type="checkbox"
+                        checked={includeDiagnosticFee}
+                        onChange={(e) => setIncludeDiagnosticFee(e.target.checked)}
+                        className="rounded border-slate-300 text-brand-blue focus:ring-brand-blue h-4 w-4 cursor-pointer"
+                      />
+                      <span className="truncate">Diagnostic Fee</span>
+                    </div>
+                    <span className={`text-[10px] font-extrabold ml-2 ${includeDiagnosticFee ? 'text-brand-blue' : 'text-slate-400'}`}>
+                      $75.00
+                    </span>
+                  </label>
                 </div>
 
                 {/* Grand Total */}
