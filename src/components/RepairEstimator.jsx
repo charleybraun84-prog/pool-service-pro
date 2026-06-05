@@ -484,8 +484,7 @@ export default function RepairEstimator() {
     
     selectedItems.forEach((item) => {
       const qtyStr = item.quantity > 1 ? ` (x${item.quantity})` : '';
-      const itemPrice = item.totalPrice * item.quantity;
-      text += `• ${item.description}${qtyStr}: $${itemPrice.toFixed(2)}\n`;
+      text += `• ${item.description}${qtyStr}\n`;
     });
 
     if (isTentative) {

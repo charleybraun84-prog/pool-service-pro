@@ -23,7 +23,7 @@ export default function Navigation({ activeView, setActiveView }) {
           </div>
           <div>
             <h1 className="font-outfit font-extrabold text-base tracking-tight text-white leading-tight">Cricket's Pool & Spa World</h1>
-            <p className="text-[9px] text-brand-blueLight font-semibold uppercase tracking-wider mt-0.5">Technician Portal</p>
+            <p className="text-[9px] text-brand-blueLight font-semibold uppercase tracking-wider mt-0.5">Field Service Portal</p>
           </div>
         </div>
 
