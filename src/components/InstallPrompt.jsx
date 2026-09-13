@@ -41,36 +41,38 @@ export default function InstallPrompt() {
   if (!showPrompt) return null;
 
   return (
-    <div className="fixed bottom-16 md:bottom-4 left-4 right-4 md:left-auto md:right-4 md:w-96 bg-brand-dark text-white p-4.5 rounded-2xl shadow-xl z-50 border border-brand-slate/85 transition-all duration-300 animate-slide-in">
+    <div className="fixed bottom-20 md:bottom-6 left-4 right-4 md:left-auto md:right-6 md:w-96 bg-slate-950/90 backdrop-blur-xl text-white p-5 rounded-3xl shadow-2xl z-50 border border-white/10 transition-all duration-300">
       <div className="flex items-start justify-between">
-        <div className="flex space-x-3">
-          <div className="bg-brand-blue/20 p-2 rounded-xl text-brand-blueLight flex-shrink-0">
+        <div className="flex space-x-3.5">
+          <div className="bg-gradient-to-tr from-sky-500 to-cyan-500 p-2.5 rounded-2xl text-white shadow-lg shadow-sky-500/25 flex-shrink-0">
             <Download className="w-5 h-5" />
           </div>
           <div>
-            <h4 className="text-sm font-bold font-outfit text-white">Add to Home Screen</h4>
-            <p className="text-xs text-slate-400 mt-1 leading-relaxed">Install Cricket's Pool & Spa World for offline access & faster load times.</p>
+            <h4 className="text-sm font-black font-outfit text-white leading-tight">Install Field Pro App</h4>
+            <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+              Add Cricket's Pool & Spa World to your home screen for instant offline access and field speed.
+            </p>
           </div>
         </div>
         <button 
           onClick={() => setShowPrompt(false)} 
-          className="text-slate-400 hover:text-white transition-colors p-1"
+          className="text-slate-400 hover:text-white transition-colors p-1 cursor-pointer"
         >
           <X className="w-4 h-4" />
         </button>
       </div>
-      <div className="mt-4 flex space-x-2 justify-end">
+      <div className="mt-4 flex space-x-2.5 justify-end">
         <button
           onClick={() => setShowPrompt(false)}
-          className="px-3.5 py-1.5 text-xs font-semibold text-slate-400 hover:text-white rounded-lg transition-colors"
+          className="px-4 py-2 text-xs font-bold font-outfit text-slate-400 hover:text-white rounded-xl transition-colors cursor-pointer"
         >
-          Later
+          Not Now
         </button>
         <button
           onClick={handleInstallClick}
-          className="bg-brand-blue hover:bg-brand-blueDark text-white text-xs font-bold py-1.5 px-4 rounded-lg shadow-sm flex items-center transition-colors border border-brand-blueLight/10"
+          className="bg-gradient-to-r from-sky-600 to-cyan-600 hover:from-sky-500 hover:to-cyan-500 text-white text-xs font-black font-outfit py-2 px-4 rounded-xl shadow-md shadow-sky-600/20 flex items-center space-x-1.5 transition-all cursor-pointer"
         >
-          Install Now
+          <span>Install Now</span>
         </button>
       </div>
     </div>

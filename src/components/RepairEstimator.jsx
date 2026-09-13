@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Wrench, Search, Plus, Minus, Trash2, Copy, Check, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Wrench, Search, Plus, Minus, Trash2, Copy, Check, RefreshCw, AlertTriangle, Calculator, Sparkles, X, RotateCcw } from 'lucide-react';
 import { fetchRepairKits, fetchRepairParts, fetchCategorySheet } from '../api';
 
 export default function RepairEstimator() {
@@ -107,7 +107,10 @@ export default function RepairEstimator() {
   };
 
   useEffect(() => {
-    loadData();
+    const timer = setTimeout(() => {
+      loadData();
+    }, 0);
+    return () => clearTimeout(timer);
   }, []);
 
   // Find part helper
@@ -128,31 +131,16 @@ export default function RepairEstimator() {
     });
   }, [parts]);
 
-  // Initialize pump kit selections
-  useEffect(() => {
-    const pumpKits = kits.filter(k => k.Category === 'Pump Repairs');
-    if (pumpKits.length > 0 && availableSealKits.length > 0) {
-      setSelectedSealKits(prev => {
-        const next = { ...prev };
-        let changed = false;
-        pumpKits.forEach(kit => {
-          const kitDesc = kit['Kit (Description)'];
-          if (!next[kitDesc]) {
-            const kitSealKitsStr = kit['Seal Kits'] || '';
-            const kitTokens = kitSealKitsStr.split(',').map(p => p.trim()).filter(Boolean);
-            
-            if (kitTokens.length > 0) {
-              next[kitDesc] = kitTokens[0];
-            } else if (availableSealKits.length > 0) {
-              next[kitDesc] = availableSealKits[0]['Part Number']; // Fallback
-            }
-            changed = true;
-          }
-        });
-        return changed ? next : prev;
-      });
-    }
-  }, [kits, availableSealKits]);
+  // Derived or user-selected seal kit ID helper
+  const getSelectedSealKitId = (kit) => {
+    const kitDesc = kit['Kit (Description)'];
+    if (selectedSealKits[kitDesc]) return selectedSealKits[kitDesc];
+    const kitSealKitsStr = kit['Seal Kits'] || '';
+    const kitTokens = kitSealKitsStr.split(',').map(p => p.trim()).filter(Boolean);
+    if (kitTokens.length > 0) return kitTokens[0];
+    if (availableSealKits.length > 0) return availableSealKits[0]['Part Number'];
+    return '';
+  };
 
   const togglePumpAddon = (kitDesc, addonKey) => {
     setSelectedAddons(prev => {
@@ -271,14 +259,14 @@ export default function RepairEstimator() {
   const calculateKitPrice = (kit) => {
     const kitDesc = kit['Kit (Description)'];
     const labor = parseNum(kit['Labor']);
-    let partsCost = 0;
+    let partsCost;
 
     if (kit.Category === 'Pump Repairs') {
       const motor = getKitMotor(kit);
       const isMotorEnabled = motorChecked[kitDesc] !== false; // defaults to true
       const motorCost = (motor && isMotorEnabled) ? parseNum(motor['Retail Price']) : 0;
       
-      const selectedSealKitId = selectedSealKits[kitDesc];
+      const selectedSealKitId = getSelectedSealKitId(kit);
       const sealKit = findPart(selectedSealKitId);
       const sealKitCost = sealKit ? parseNum(sealKit['Retail Price']) : 0;
       
@@ -334,14 +322,14 @@ export default function RepairEstimator() {
   const addKit = (kit) => {
     const kitDesc = kit['Kit (Description)'];
     const labor = parseNum(kit['Labor']);
-    let partsCost = 0;
+    let partsCost;
     let partsListForSignature = [];
-    let partsSummary = '';
+    let partsSummary;
 
     if (kit.Category === 'Pump Repairs') {
       const motor = getKitMotor(kit);
       const isMotorEnabled = motorChecked[kitDesc] !== false;
-      const selectedSealKitId = selectedSealKits[kitDesc];
+      const selectedSealKitId = getSelectedSealKitId(kit);
       const sealKit = findPart(selectedSealKitId);
       const addonsState = selectedAddons[kitDesc] || { impellers: false, sealPlate: false };
       
@@ -506,56 +494,102 @@ export default function RepairEstimator() {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const totalCartCount = selectedItems.reduce((acc, item) => acc + item.quantity, 0);
+
+  const handleClearCart = () => {
+    setSelectedItems([]);
+    setIncludeDiagnosticFee(false);
+  };
+
   return (
-    <div className="max-w-5xl mx-auto space-y-6 pb-12">
-      {/* Header Banner */}
-      <div className="bg-gradient-to-r from-brand-dark to-brand-slate text-white p-6 rounded-2xl border border-brand-slate shadow-premium relative overflow-hidden">
-        <div className="absolute right-0 top-0 translate-x-1/4 -translate-y-1/4 w-64 h-64 bg-brand-blue/10 rounded-full blur-3xl pointer-events-none"></div>
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 relative z-10">
-          <div className="flex items-center space-x-3.5">
-            <div className="bg-brand-blue/20 p-2.5 rounded-xl text-brand-blueLight border border-brand-blueLight/10">
-              <Wrench className="w-6 h-6" />
+    <div className="space-y-6 pb-12">
+      {/* Modern Workstation Header Banner */}
+      <div className="bg-gradient-to-r from-slate-950 via-slate-900 to-sky-950 text-white p-6 sm:p-7 rounded-3xl border border-slate-800 shadow-xl relative overflow-hidden">
+        <div className="absolute right-0 top-0 translate-x-1/4 -translate-y-1/4 w-80 h-80 bg-sky-500/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
+          <div className="flex items-start sm:items-center space-x-4">
+            <div className="bg-gradient-to-tr from-sky-600 to-cyan-500 p-3 rounded-2xl text-white shadow-lg shadow-sky-600/30 flex-shrink-0">
+              <Wrench className="w-7 h-7" />
             </div>
             <div>
-              <h2 className="text-xl font-bold font-outfit text-white">Repair Estimator</h2>
-              <p className="text-xs text-slate-400 mt-1">Select repair kits, toggle dynamic add-ons, and calculate totals.</p>
+              <div className="flex items-center space-x-2">
+                <h2 className="text-xl sm:text-2xl font-black font-outfit text-white tracking-tight">
+                  Repair Estimator & Quote Engine
+                </h2>
+                <span className="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-sky-500/20 text-sky-400 border border-sky-500/30">
+                  Interactive
+                </span>
+              </div>
+              <p className="text-xs text-slate-300 mt-1 max-w-xl leading-relaxed">
+                Configure equipment repair kits, customize parts and labor, toggle diagnostic surcharges, and generate customer-ready estimates.
+              </p>
             </div>
           </div>
-          <button
-            onClick={() => loadData(true)}
-            disabled={loading}
-            className="self-start sm:self-auto inline-flex items-center space-x-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold border border-slate-700 transition cursor-pointer disabled:opacity-50"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-            <span>Refresh Database</span>
-          </button>
+
+          {/* Quick Metrics & Refresh */}
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="bg-slate-800/80 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-slate-700/60 text-left">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Catalog Kits</span>
+              <span className="text-sm font-extrabold font-outfit text-white">{kits.length} available</span>
+            </div>
+
+            <div className="bg-slate-800/80 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-slate-700/60 text-left">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Quote Total</span>
+              <span className="text-sm font-extrabold font-outfit text-cyan-400">${grandTotal.toFixed(2)}</span>
+            </div>
+
+            <button
+              onClick={() => loadData(true)}
+              disabled={loading}
+              className="inline-flex items-center space-x-2 px-4 py-2.5 bg-sky-600 hover:bg-sky-500 text-white rounded-2xl text-xs font-bold font-outfit transition cursor-pointer disabled:opacity-50 shadow-md shadow-sky-600/20"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+              <span>Sync Database</span>
+            </button>
+          </div>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
-        {/* Left: Browse, Search & Categories (col-span-3) */}
-        <div className="lg:col-span-3 space-y-4">
-          <div className="bg-white p-5 rounded-2xl border border-brand-border shadow-premium space-y-5">
+        {/* Left: Browse, Search & Kits List (col-span-7) */}
+        <div className="lg:col-span-7 space-y-4">
+          <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm space-y-4">
             {/* Search Bar */}
             <div className="relative">
               <Search className="absolute left-3.5 top-3.5 h-4 w-4 text-slate-400" />
               <input
                 type="text"
-                placeholder="Search repair kits by description or parts..."
+                placeholder="Search repair kits by name, model, or part number..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="block w-full pl-10 pr-4 py-3 border border-brand-border rounded-xl bg-slate-50 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue text-sm text-slate-800 transition duration-150"
+                className="block w-full pl-10 pr-10 py-3 border border-slate-200 rounded-2xl bg-slate-50/70 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 text-sm text-slate-800 transition duration-150"
               />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
             </div>
 
             {/* Category Filter Pills */}
             {!loading && !error && categories.length > 1 && (
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Filter by Category</label>
+              <div className="space-y-2 pt-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
+                    Category Filter
+                  </span>
+                  <span className="text-[11px] text-slate-400 font-medium">
+                    {filteredKits.length} {filteredKits.length === 1 ? 'kit' : 'kits'} found
+                  </span>
+                </div>
                 <div className="flex flex-wrap gap-2">
                   {categories.map((cat) => {
                     const displayLabel = cat === 'FIlter Repairs' ? 'Filter Repairs' : cat;
+                    const isActive = activeCategory === cat;
                     return (
                       <button
                         key={cat}
@@ -566,10 +600,10 @@ export default function RepairEstimator() {
                             setActivePumpModel('All');
                           }
                         }}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold font-outfit border transition-all cursor-pointer ${
-                          activeCategory === cat
-                            ? 'bg-brand-blue border-brand-blue text-white shadow-sm'
-                            : 'bg-slate-100 border-slate-200/50 text-slate-500 hover:bg-slate-200/60 hover:text-slate-700'
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold font-outfit border transition-all cursor-pointer ${
+                          isActive
+                            ? 'bg-sky-600 border-sky-600 text-white shadow-sm'
+                            : 'bg-slate-100/80 border-slate-200/60 text-slate-600 hover:bg-slate-200/80 hover:text-slate-900'
                         }`}
                       >
                         {displayLabel}
@@ -583,7 +617,9 @@ export default function RepairEstimator() {
             {/* Pump Model Filter Pills */}
             {!loading && !error && activeCategory === 'Pump Repairs' && (
               <div className="space-y-2 pt-3 border-t border-slate-100">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Filter by Pump Model Compatibility</label>
+                <span className="text-[10px] font-extrabold text-teal-600 uppercase tracking-wider block">
+                  Pump Model Compatibility Filter
+                </span>
                 <div className="flex flex-wrap gap-2">
                   {pumpModels.map((model) => (
                     <button
@@ -592,10 +628,10 @@ export default function RepairEstimator() {
                         setActivePumpModel(model);
                         setSearchQuery('');
                       }}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-bold font-outfit border transition-all cursor-pointer ${
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold font-outfit border transition-all cursor-pointer ${
                         activePumpModel === model
-                          ? 'bg-brand-teal border-brand-teal text-white shadow-sm'
-                          : 'bg-slate-100 border-slate-200/50 text-slate-500 hover:bg-slate-200/60 hover:text-slate-700'
+                          ? 'bg-teal-600 border-teal-600 text-white shadow-sm'
+                          : 'bg-teal-50/60 border-teal-200/60 text-teal-800 hover:bg-teal-100/60'
                       }`}
                     >
                       {model}
@@ -606,78 +642,91 @@ export default function RepairEstimator() {
             )}
           </div>
 
-          {/* Loader or Error or List */}
+          {/* Loader or Error or Kits List */}
           {loading ? (
-            <div className="text-center py-16 bg-white rounded-2xl shadow-premium border border-brand-border flex flex-col items-center justify-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-blue mb-3"></div>
-              <p className="text-slate-500 text-sm font-semibold animate-pulse">Loading repair database...</p>
+            <div className="text-center py-20 bg-white rounded-3xl shadow-sm border border-slate-200 flex flex-col items-center justify-center">
+              <div className="relative mb-3">
+                <div className="w-10 h-10 rounded-full border-2 border-sky-500/20 border-t-sky-600 animate-spin"></div>
+                <div className="absolute inset-0 flex items-center justify-center text-sky-600">
+                  <Sparkles className="w-4 h-4 animate-pulse" />
+                </div>
+              </div>
+              <p className="text-slate-800 text-sm font-bold font-outfit">Loading Repair Catalog & Inventory...</p>
+              <p className="text-slate-400 text-xs mt-1">Fetching live parts from Google Sheets database</p>
             </div>
           ) : error ? (
-            <div className="bg-red-50 text-red-800 text-sm p-4 rounded-xl border border-red-200 flex items-start space-x-3 shadow-sm">
+            <div className="bg-red-50 text-red-800 text-sm p-5 rounded-3xl border border-red-200 flex items-start space-x-3.5 shadow-sm">
               <AlertTriangle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
               <div className="space-y-1.5">
-                <span className="font-bold block">Retrieval Error</span>
+                <span className="font-bold block text-sm">Database Retrieval Error</span>
                 <p className="text-xs text-red-700 leading-relaxed">{error}</p>
                 <button
                   onClick={() => loadData(true)}
-                  className="mt-2 text-xs font-bold underline hover:text-red-900 flex items-center gap-1 cursor-pointer"
+                  className="mt-2 inline-flex items-center space-x-1.5 text-xs font-bold text-red-700 hover:text-red-900 underline cursor-pointer"
                 >
-                  <RefreshCw className="w-3 h-3" /> Retry connection
+                  <RefreshCw className="w-3.5 h-3.5" /> 
+                  <span>Retry Connection</span>
                 </button>
               </div>
             </div>
           ) : filteredKits.length === 0 ? (
-            <div className="text-center py-12 bg-white rounded-2xl border border-brand-border shadow-premium">
-              <p className="text-slate-400 text-sm font-medium">No matching repair kits found.</p>
+            <div className="text-center py-16 bg-white rounded-3xl border border-slate-200 shadow-sm p-6">
+              <div className="w-12 h-12 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto mb-3">
+                <Search className="w-6 h-6" />
+              </div>
+              <h4 className="font-outfit font-bold text-slate-800 text-base">No Matching Kits Found</h4>
+              <p className="text-slate-400 text-xs mt-1">Try clearing your search query or selecting a different category.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-3.5">
+            <div className="grid grid-cols-1 gap-4">
               {filteredKits.map((kit, index) => {
                 const kitDesc = kit['Kit (Description)'];
                 const kitParts = getKitParts(kit);
                 const kitTotal = calculateKitPrice(kit);
+                const categoryLabel = kit.Category === 'FIlter Repairs' ? 'Filter Repairs' : kit.Category;
                 
                 return (
                   <div 
                     key={index} 
-                    className="bg-white rounded-2xl border border-brand-border p-4.5 shadow-sm hover:shadow-premium hover:-translate-y-[1px] transition-all duration-300 flex flex-col justify-between gap-4"
+                    className="bg-white rounded-3xl border border-slate-200/90 p-5 shadow-sm hover:shadow-md transition-all duration-200 flex flex-col justify-between gap-4"
                   >
                     <div className="flex flex-col sm:flex-row justify-between items-start gap-4 w-full">
-                      <div className="space-y-1.5 flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[9px] font-bold px-2 py-0.5 bg-slate-100 text-slate-500 rounded-md uppercase tracking-wider">
-                            {kit.Category === 'FIlter Repairs' ? 'Filter Repairs' : kit.Category}
+                      <div className="space-y-2 flex-1 min-w-0">
+                        <div className="flex items-center space-x-2 flex-wrap gap-y-1">
+                          <span className="text-[10px] font-black px-2.5 py-1 bg-slate-100 text-slate-700 rounded-lg uppercase tracking-wider font-outfit border border-slate-200/60">
+                            {categoryLabel}
+                          </span>
+                          <span className="text-[10px] font-bold px-2.5 py-1 bg-sky-50 text-sky-700 rounded-lg uppercase tracking-wider font-outfit border border-sky-100">
+                            Labor: ${parseNum(kit['Labor']).toFixed(2)}
                           </span>
                         </div>
-                        <h4 className="text-sm font-bold text-slate-800 font-outfit break-words mt-1">
+                        <h4 className="text-base font-extrabold text-slate-900 font-outfit break-words leading-snug">
                           {kitDesc}
                         </h4>
-                        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-                          Base Labor: ${parseNum(kit['Labor']).toFixed(2)}
-                        </p>
                       </div>
                       
-                      <div className="flex items-center justify-between sm:justify-end w-full sm:w-auto gap-4 pt-3 sm:pt-0 border-t sm:border-t-0 border-slate-100/80 flex-shrink-0">
+                      <div className="flex items-center justify-between sm:justify-end w-full sm:w-auto gap-4 pt-3 sm:pt-0 border-t sm:border-t-0 border-slate-100 flex-shrink-0">
                         <div className="text-right">
-                          <span className="text-[9px] uppercase tracking-wider text-slate-400 font-bold block">Total Price</span>
-                          <span className="text-base font-extrabold text-brand-blue font-outfit block mt-0.5">
+                          <span className="text-[10px] uppercase tracking-wider text-slate-400 font-bold block">Kit Price</span>
+                          <span className="text-lg font-black text-sky-600 font-outfit block">
                             ${kitTotal.toFixed(2)}
                           </span>
                         </div>
                         
                         <button
                           onClick={() => addKit(kit)}
-                          className="bg-brand-blue hover:bg-brand-blueDark text-white p-2.5 rounded-xl transition cursor-pointer shadow-sm hover:shadow flex items-center justify-center flex-shrink-0"
+                          className="bg-gradient-to-r from-sky-600 to-cyan-600 hover:from-sky-500 hover:to-cyan-500 text-white px-3.5 py-2.5 rounded-2xl transition cursor-pointer shadow-md shadow-sky-600/20 flex items-center space-x-1.5 flex-shrink-0 font-outfit text-xs font-bold"
                           title="Add to Estimate"
                         >
                           <Plus className="w-4 h-4 stroke-[2.5]" />
+                          <span>Add to Quote</span>
                         </button>
                       </div>
                     </div>
 
-                    {/* Checkable Parts List from Parts Tab */}
+                    {/* Interactive Parts Selection Section */}
                     {kit.Category === 'Pump Repairs' ? (
-                      <div className="space-y-2.5 border-t border-slate-100 pt-3.5 mt-1">
+                      <div className="space-y-3 border-t border-slate-100 pt-3.5 mt-1">
                         {/* 1. Included Motor */}
                         {getKitMotor(kit) && (() => {
                           const motor = getKitMotor(kit);
@@ -686,31 +735,31 @@ export default function RepairEstimator() {
                           
                           return (
                             <div className="space-y-1.5">
-                              <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest block">
-                                Included Motor:
+                              <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest block">
+                                Motor Option:
                               </span>
                               <label 
-                                className={`flex items-center justify-between p-2.5 rounded-xl border text-xs font-semibold cursor-pointer transition-all ${
+                                className={`flex items-center justify-between p-3 rounded-2xl border text-xs font-semibold cursor-pointer transition-all ${
                                   isMotorEnabled 
-                                    ? 'bg-brand-blue/5 border-brand-blue/20 text-slate-800' 
+                                    ? 'bg-sky-50/70 border-sky-200 text-slate-900 shadow-sm' 
                                     : 'bg-slate-50/50 border-slate-200 text-slate-400 hover:bg-slate-100/50'
                                 }`}
                               >
-                                <div className="flex items-center space-x-2.5 min-w-0">
+                                <div className="flex items-center space-x-3 min-w-0">
                                   <input
                                     type="checkbox"
                                     checked={isMotorEnabled}
                                     onChange={() => toggleMotor(kitDesc)}
-                                    className="rounded border-slate-300 text-brand-blue focus:ring-brand-blue h-4 w-4 cursor-pointer"
+                                    className="rounded-lg border-slate-300 text-sky-600 focus:ring-sky-500 h-4 w-4 cursor-pointer"
                                   />
                                   <div className="flex flex-col min-w-0">
-                                    <span className="truncate">{motor.Description || motor['Part Number']}</span>
-                                    <span className="text-[9px] font-bold text-slate-400 mt-0.5">
+                                    <span className="truncate font-bold text-slate-800">{motor.Description || motor['Part Number']}</span>
+                                    <span className="text-[10px] font-bold text-slate-400 mt-0.5">
                                       Part No: {motor['Part Number']}
                                     </span>
                                   </div>
                                 </div>
-                                <span className={`text-[10px] font-extrabold ml-2 ${isMotorEnabled ? 'text-brand-blue' : 'text-slate-400'}`}>
+                                <span className={`text-xs font-black font-outfit ml-2 ${isMotorEnabled ? 'text-sky-600' : 'text-slate-400'}`}>
                                   ${motorPrice > 0 ? motorPrice.toFixed(2) : '0.00'}
                                 </span>
                               </label>
@@ -721,11 +770,11 @@ export default function RepairEstimator() {
                         {/* 2. Select Seal Kit Dropdown */}
                         {kit['Seal Kits'] && (
                           <div className="space-y-1.5">
-                            <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest block">
+                            <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest block">
                               Select Seal Kit:
                             </span>
                             <select
-                              className="block w-full px-3 py-2 border border-brand-border rounded-xl bg-slate-50 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue text-xs text-slate-800 transition duration-150 cursor-pointer"
+                              className="block w-full px-3.5 py-2.5 border border-slate-200 rounded-2xl bg-slate-50/80 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 text-xs text-slate-800 transition duration-150 cursor-pointer font-semibold"
                               value={selectedSealKits[kitDesc] || ''}
                               onChange={(e) => setSelectedSealKits(prev => ({ ...prev, [kitDesc]: e.target.value }))}
                             >
@@ -747,8 +796,8 @@ export default function RepairEstimator() {
                         {selectedSealKits[kitDesc]?.toUpperCase() === 'GO-KIT32-9' && (() => {
                           const addonsState = selectedAddons[kitDesc] || { impellers: false, sealPlate: false };
                           return (
-                            <div className="space-y-1.5 pt-2 border-t border-slate-100 mt-2">
-                              <span className="text-[9px] font-extrabold text-brand-teal uppercase tracking-widest block">
+                            <div className="space-y-2 pt-2 border-t border-slate-100 mt-2">
+                              <span className="text-[10px] font-extrabold text-teal-700 uppercase tracking-widest block">
                                 Optional Add-ons for {selectedSealKits[kitDesc]}:
                               </span>
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -757,19 +806,19 @@ export default function RepairEstimator() {
                                   const isChecked = addonsState.impellers;
                                   const price = (parseNum(impPart ? impPart['Retail Price'] : 0) * 1.09);
                                   return (
-                                    <label className={`flex items-center justify-between p-2.5 rounded-xl border text-xs font-semibold cursor-pointer transition-all ${
+                                    <label className={`flex items-center justify-between p-3 rounded-2xl border text-xs font-semibold cursor-pointer transition-all ${
                                       isChecked 
-                                        ? 'bg-brand-teal/5 border-brand-teal/20 text-slate-800' 
+                                        ? 'bg-teal-50/70 border-teal-200 text-slate-900 shadow-sm' 
                                         : 'bg-slate-50/50 border-slate-200 text-slate-400 hover:bg-slate-100/50'
                                     }`}>
                                       <div className="flex items-center space-x-2.5 min-w-0">
-                                        <input type="checkbox" checked={isChecked} onChange={() => togglePumpAddon(kitDesc, 'impellers')} className="rounded border-slate-300 text-brand-teal focus:ring-brand-teal h-4 w-4 cursor-pointer" />
+                                        <input type="checkbox" checked={isChecked} onChange={() => togglePumpAddon(kitDesc, 'impellers')} className="rounded-lg border-slate-300 text-teal-600 focus:ring-teal-500 h-4 w-4 cursor-pointer" />
                                         <div className="flex flex-col min-w-0">
-                                          <span className="truncate">WF Impellers</span>
+                                          <span className="truncate font-bold text-slate-800">WF Impellers</span>
                                           <span className="text-[9px] font-bold text-slate-400 mt-0.5">Part No: {kit['WF Impellers']}</span>
                                         </div>
                                       </div>
-                                      <span className={`text-[10px] font-extrabold ml-2 ${isChecked ? 'text-brand-teal font-bold' : 'text-slate-400'}`}>
+                                      <span className={`text-xs font-black font-outfit ml-2 ${isChecked ? 'text-teal-700' : 'text-slate-400'}`}>
                                         ${price.toFixed(2)}
                                       </span>
                                     </label>
@@ -781,19 +830,19 @@ export default function RepairEstimator() {
                                   const isChecked = addonsState.sealPlate;
                                   const price = (parseNum(spPart ? spPart['Retail Price'] : 0) * 1.09);
                                   return (
-                                    <label className={`flex items-center justify-between p-2.5 rounded-xl border text-xs font-semibold cursor-pointer transition-all ${
+                                    <label className={`flex items-center justify-between p-3 rounded-2xl border text-xs font-semibold cursor-pointer transition-all ${
                                       isChecked 
-                                        ? 'bg-brand-teal/5 border-brand-teal/20 text-slate-800' 
+                                        ? 'bg-teal-50/70 border-teal-200 text-slate-900 shadow-sm' 
                                         : 'bg-slate-50/50 border-slate-200 text-slate-400 hover:bg-slate-100/50'
                                     }`}>
                                       <div className="flex items-center space-x-2.5 min-w-0">
-                                        <input type="checkbox" checked={isChecked} onChange={() => togglePumpAddon(kitDesc, 'sealPlate')} className="rounded border-slate-300 text-brand-teal focus:ring-brand-teal h-4 w-4 cursor-pointer" />
+                                        <input type="checkbox" checked={isChecked} onChange={() => togglePumpAddon(kitDesc, 'sealPlate')} className="rounded-lg border-slate-300 text-teal-600 focus:ring-teal-500 h-4 w-4 cursor-pointer" />
                                         <div className="flex flex-col min-w-0">
-                                          <span className="truncate">WF Seal Plate</span>
+                                          <span className="truncate font-bold text-slate-800">WF Seal Plate</span>
                                           <span className="text-[9px] font-bold text-slate-400 mt-0.5">Part No: {kit['WF Seal Plate']}</span>
                                         </div>
                                       </div>
-                                      <span className={`text-[10px] font-extrabold ml-2 ${isChecked ? 'text-brand-teal font-bold' : 'text-slate-400'}`}>
+                                      <span className={`text-xs font-black font-outfit ml-2 ${isChecked ? 'text-teal-700' : 'text-slate-400'}`}>
                                         ${price.toFixed(2)}
                                       </span>
                                     </label>
@@ -806,12 +855,12 @@ export default function RepairEstimator() {
                       </div>
                     ) : (
                       kitParts.length > 0 && (
-                        <div className="space-y-2.5 border-t border-slate-100 pt-3.5 mt-1">
+                        <div className="space-y-3 border-t border-slate-100 pt-3.5 mt-1">
                           {/* Included Base Parts (checked by default) */}
                           {kitParts.some(p => !p.isAddon) && (
                             <div className="space-y-1.5">
-                              <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest block">
-                                Included Base Parts (checked by default):
+                              <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest block">
+                                Included Base Parts:
                               </span>
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                 {kitParts.filter(p => !p.isAddon).map((part) => {
@@ -821,9 +870,9 @@ export default function RepairEstimator() {
                                   return (
                                     <label 
                                       key={part.partNumber} 
-                                      className={`flex items-center justify-between p-2.5 rounded-xl border text-xs font-semibold cursor-pointer transition-all ${
+                                      className={`flex items-center justify-between p-3 rounded-2xl border text-xs font-semibold cursor-pointer transition-all ${
                                         isChecked 
-                                          ? 'bg-brand-blue/5 border-brand-blue/20 text-slate-800' 
+                                          ? 'bg-sky-50/70 border-sky-200 text-slate-900 shadow-sm' 
                                           : 'bg-slate-50/50 border-slate-200 text-slate-400 hover:bg-slate-100/50'
                                       }`}
                                     >
@@ -832,16 +881,16 @@ export default function RepairEstimator() {
                                           type="checkbox"
                                           checked={isChecked}
                                           onChange={() => togglePart(kitDesc, part)}
-                                          className="rounded border-slate-300 text-brand-blue focus:ring-brand-blue h-4 w-4 cursor-pointer"
+                                          className="rounded-lg border-slate-300 text-sky-600 focus:ring-sky-500 h-4 w-4 cursor-pointer"
                                         />
                                         <div className="flex flex-col min-w-0">
-                                          <span className="truncate">{part.description}</span>
+                                          <span className="truncate font-bold text-slate-800">{part.description}</span>
                                           <span className="text-[9px] font-bold text-slate-400 mt-0.5">
                                             Part No: {part.partNumber} {part.quantity > 1 && `(x${part.quantity})`}
                                           </span>
                                         </div>
                                       </div>
-                                      <span className={`text-[10px] font-extrabold ml-2 ${isChecked ? 'text-brand-blue' : 'text-slate-400'}`}>
+                                      <span className={`text-xs font-black font-outfit ml-2 ${isChecked ? 'text-sky-600' : 'text-slate-400'}`}>
                                         ${totalPartPrice > 0 ? totalPartPrice.toFixed(2) : '0.00'}
                                       </span>
                                     </label>
@@ -854,8 +903,8 @@ export default function RepairEstimator() {
                           {/* Optional Add-on Parts (unchecked by default) */}
                           {kitParts.some(p => p.isAddon) && (
                             <div className="space-y-1.5 pt-1">
-                              <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-widest block">
-                                Optional Add-on Parts (unchecked by default):
+                              <span className="text-[10px] font-extrabold text-teal-700 uppercase tracking-widest block">
+                                Optional Add-on Parts:
                               </span>
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                 {kitParts.filter(p => p.isAddon).map((part) => {
@@ -865,9 +914,9 @@ export default function RepairEstimator() {
                                   return (
                                     <label 
                                       key={part.partNumber} 
-                                      className={`flex items-center justify-between p-2.5 rounded-xl border text-xs font-semibold cursor-pointer transition-all ${
+                                      className={`flex items-center justify-between p-3 rounded-2xl border text-xs font-semibold cursor-pointer transition-all ${
                                         isChecked 
-                                          ? 'bg-brand-teal/5 border-brand-teal/20 text-slate-800' 
+                                          ? 'bg-teal-50/70 border-teal-200 text-slate-900 shadow-sm' 
                                           : 'bg-slate-50/50 border-slate-200 text-slate-400 hover:bg-slate-100/50'
                                       }`}
                                     >
@@ -876,16 +925,16 @@ export default function RepairEstimator() {
                                           type="checkbox"
                                           checked={isChecked}
                                           onChange={() => togglePart(kitDesc, part)}
-                                          className="rounded border-slate-300 text-brand-teal focus:ring-brand-teal h-4 w-4 cursor-pointer"
+                                          className="rounded-lg border-slate-300 text-teal-600 focus:ring-teal-500 h-4 w-4 cursor-pointer"
                                         />
                                         <div className="flex flex-col min-w-0">
-                                          <span className="truncate">{part.description}</span>
+                                          <span className="truncate font-bold text-slate-800">{part.description}</span>
                                           <span className="text-[9px] font-bold text-slate-400 mt-0.5">
                                             Part No: {part.partNumber} {part.quantity > 1 && `(x${part.quantity})`}
                                           </span>
                                         </div>
                                       </div>
-                                      <span className={`text-[10px] font-extrabold ml-2 ${isChecked ? 'text-brand-teal font-bold' : 'text-slate-400'}`}>
+                                      <span className={`text-xs font-black font-outfit ml-2 ${isChecked ? 'text-teal-700' : 'text-slate-400'}`}>
                                         ${totalPartPrice > 0 ? totalPartPrice.toFixed(2) : '0.00'}
                                       </span>
                                     </label>
@@ -904,42 +953,69 @@ export default function RepairEstimator() {
           )}
         </div>
 
-        {/* Right: Active Estimate Cart & Custom items (col-span-2) */}
-        <div className="lg:col-span-2 space-y-4">
-          <div className="bg-white p-5 rounded-2xl border border-brand-border shadow-premium space-y-5 flex flex-col">
-            <div>
-              <h3 className="font-outfit font-bold text-slate-800 text-base">Estimate Calculator</h3>
-              <p className="text-xs text-slate-400 mt-1">Build an active customer repair quote.</p>
+        {/* Right: Sticky Estimate Calculator & Quote Builder (col-span-5) */}
+        <div className="lg:col-span-5 space-y-4">
+          <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-lg space-y-5 lg:sticky lg:top-20">
+            {/* Header with Counter and Clear */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-2.5">
+                <div className="p-2 rounded-xl bg-sky-50 text-sky-600">
+                  <Calculator className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-outfit font-black text-slate-900 text-base leading-tight">
+                    Customer Quote Sheet
+                  </h3>
+                  <p className="text-[11px] text-slate-400 font-medium">
+                    {totalCartCount} {totalCartCount === 1 ? 'item selected' : 'items selected'}
+                  </p>
+                </div>
+              </div>
+
+              {selectedItems.length > 0 && (
+                <button
+                  onClick={handleClearCart}
+                  className="inline-flex items-center space-x-1 text-xs font-bold text-slate-400 hover:text-red-600 transition-colors p-1 cursor-pointer"
+                  title="Clear estimate"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span>Reset</span>
+                </button>
+              )}
             </div>
 
             {selectedItems.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-10 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200 text-center p-4">
-                <span className="text-3xl mb-2">📋</span>
-                <span className="text-xs text-slate-400 font-medium">Your estimate sheet is empty.</span>
-                <span className="text-[10px] text-slate-400 mt-1 max-w-[200px]">Add kits from the list or add custom parts below.</span>
+              <div className="flex flex-col items-center justify-center py-12 bg-slate-50/70 rounded-3xl border border-dashed border-slate-200 text-center p-6">
+                <div className="w-12 h-12 rounded-2xl bg-sky-50 text-sky-600 flex items-center justify-center mb-3">
+                  <Wrench className="w-6 h-6" />
+                </div>
+                <span className="text-sm font-extrabold font-outfit text-slate-800">Your Estimate is Empty</span>
+                <span className="text-xs text-slate-400 mt-1 max-w-[220px] leading-relaxed">
+                  Click "+ Add to Quote" on any kit or add custom parts below.
+                </span>
               </div>
             ) : (
               <div className="space-y-4">
                 {/* List of selected items */}
-                <div className="space-y-2 max-h-64 overflow-y-auto pr-1 no-scrollbar">
+                <div className="space-y-2 max-h-72 overflow-y-auto pr-1 no-scrollbar">
                   {selectedItems.map((item) => {
                     const itemTotal = item.totalPrice * item.quantity;
                     
                     return (
                       <div 
                         key={item.id} 
-                        className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-brand-border text-xs"
+                        className="flex items-center justify-between p-3 rounded-2xl bg-slate-50/80 border border-slate-200/80 text-xs shadow-xs hover:border-slate-300 transition-all"
                       >
                         <div className="flex-1 min-w-0 pr-3">
                           <div className="flex items-center gap-1.5">
                             {item.isCustom && (
-                              <span className="text-[8px] font-black px-1 py-0.5 bg-brand-teal/15 text-brand-teal rounded uppercase">
+                              <span className="text-[8px] font-black px-1.5 py-0.5 bg-teal-100 text-teal-800 rounded-md uppercase tracking-wider">
                                 Custom
                               </span>
                             )}
-                            <span className="font-bold text-slate-700 truncate block">{item.description}</span>
+                            <span className="font-bold text-slate-800 truncate block">{item.description}</span>
                           </div>
-                          <span className="text-[10px] text-brand-blue font-bold block mt-0.5">
+                          <span className="text-xs text-sky-600 font-extrabold font-outfit block mt-0.5">
                             ${itemTotal.toFixed(2)}
                           </span>
                         </div>
@@ -947,23 +1023,23 @@ export default function RepairEstimator() {
                         <div className="flex items-center gap-1.5 flex-shrink-0">
                           <button
                             onClick={() => decreaseItem(item.id)}
-                            className="bg-white hover:bg-slate-100 text-slate-500 hover:text-slate-800 p-1.5 rounded-lg border border-slate-200 transition cursor-pointer"
+                            className="bg-white hover:bg-slate-100 text-slate-600 p-1.5 rounded-xl border border-slate-200 transition cursor-pointer shadow-xs"
                           >
                             <Minus className="w-3.5 h-3.5" />
                           </button>
                           
-                          <span className="w-5 text-center font-extrabold text-slate-700 text-xs">{item.quantity}</span>
+                          <span className="w-5 text-center font-black text-slate-800 text-xs font-outfit">{item.quantity}</span>
                           
                           <button
                             onClick={() => increaseItem(item.id)}
-                            className="bg-white hover:bg-slate-100 text-slate-500 hover:text-slate-800 p-1.5 rounded-lg border border-slate-200 transition cursor-pointer"
+                            className="bg-white hover:bg-slate-100 text-slate-600 p-1.5 rounded-xl border border-slate-200 transition cursor-pointer shadow-xs"
                           >
                             <Plus className="w-3.5 h-3.5" />
                           </button>
 
                           <button
                             onClick={() => removeItem(item.id)}
-                            className="text-slate-400 hover:text-brand-danger p-1.5 rounded-lg transition cursor-pointer ml-1"
+                            className="text-slate-400 hover:text-red-500 p-1.5 rounded-xl transition cursor-pointer ml-1"
                             title="Remove item"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -974,12 +1050,12 @@ export default function RepairEstimator() {
                   })}
                 </div>
 
-                {/* Diagnostic Fee Toggle */}
-                <div className="border-t border-slate-100 pt-4">
+                {/* Surcharges & Diagnostic Fee Toggle */}
+                <div className="border-t border-slate-100 pt-3 space-y-2">
                   <label 
-                    className={`flex items-center justify-between p-2.5 rounded-xl border text-xs font-semibold cursor-pointer transition-all ${
+                    className={`flex items-center justify-between p-3 rounded-2xl border text-xs font-semibold cursor-pointer transition-all ${
                       includeDiagnosticFee 
-                        ? 'bg-brand-blue/5 border-brand-blue/20 text-slate-800' 
+                        ? 'bg-sky-50 border-sky-200 text-slate-900 shadow-sm' 
                         : 'bg-slate-50/50 border-slate-200 text-slate-400 hover:bg-slate-100/50'
                     }`}
                   >
@@ -988,69 +1064,79 @@ export default function RepairEstimator() {
                         type="checkbox"
                         checked={includeDiagnosticFee}
                         onChange={(e) => setIncludeDiagnosticFee(e.target.checked)}
-                        className="rounded border-slate-300 text-brand-blue focus:ring-brand-blue h-4 w-4 cursor-pointer"
+                        className="rounded-lg border-slate-300 text-sky-600 focus:ring-sky-500 h-4 w-4 cursor-pointer"
                       />
-                      <span className="truncate">Diagnostic Fee</span>
+                      <span className="font-bold text-slate-800">Include Diagnostic Fee</span>
                     </div>
-                    <span className={`text-[10px] font-extrabold ml-2 ${includeDiagnosticFee ? 'text-brand-blue' : 'text-slate-400'}`}>
-                      $75.00
+                    <span className={`text-xs font-black font-outfit ml-2 ${includeDiagnosticFee ? 'text-sky-600' : 'text-slate-400'}`}>
+                      +$75.00
                     </span>
                   </label>
-                </div>
 
-                {/* Grand Total */}
-                <div className="border-t border-slate-100 pt-4">
-                  <div className="flex justify-between text-sm font-extrabold text-slate-800 font-outfit">
-                    <span>Total Estimated Price:</span>
-                    <span className="text-brand-blue">${grandTotal.toFixed(2)}</span>
+                  <div className="flex items-center justify-between px-3 py-1.5 text-xs text-slate-500">
+                    <span className="font-medium">Standard Fuel & Travel Surcharge</span>
+                    <span className="font-bold text-slate-700 font-outfit">+$5.00</span>
                   </div>
                 </div>
 
+                {/* Financial Summary Breakdown */}
+                <div className="border-t border-slate-100 pt-3.5 bg-gradient-to-br from-slate-50 to-sky-50/30 p-4 rounded-2xl border border-slate-200/60">
+                  <div className="flex justify-between items-baseline text-slate-900">
+                    <span className="text-xs font-bold font-outfit uppercase tracking-wider text-slate-500">
+                      Total Estimated Price
+                    </span>
+                    <span className="text-2xl font-black font-outfit text-sky-600">
+                      ${grandTotal.toFixed(2)}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-1">
+                    *Excludes sales tax. Subject to physical inspection on site.
+                  </p>
+                </div>
+
                 {/* Estimate Wording Dropdown */}
-                <div className="space-y-1.5 border-t border-slate-100 pt-4">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                    Estimate Wording Type
+                <div className="space-y-1.5 pt-1">
+                  <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
+                    Quote Terminology
                   </label>
                   <select
-                    className="block w-full px-3 py-2 border border-brand-border rounded-xl bg-slate-50 focus:outline-none focus:ring-2 focus:ring-brand-blue/20 focus:border-brand-blue text-xs text-slate-800 transition duration-150 cursor-pointer font-medium"
+                    className="block w-full px-3.5 py-2.5 border border-slate-200 rounded-2xl bg-slate-50/80 focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 text-xs text-slate-800 transition duration-150 cursor-pointer font-bold font-outfit"
                     value={wordingType}
                     onChange={(e) => setWordingType(e.target.value)}
                   >
-                    <option value="estimate">Standard Estimate</option>
-                    <option value="tentative">Tentative Quote (Suspected Failure)</option>
+                    <option value="estimate">Standard Repair Estimate</option>
+                    <option value="tentative">Tentative Quote (Suspected Equipment Failure)</option>
                   </select>
                 </div>
 
                 {/* Copy Text Area */}
-                <div className="space-y-2 border-t border-slate-100 pt-4">
-                  <div className="flex justify-between items-center">
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                      Preview {wordingType === 'tentative' ? 'Tentative Quote' : 'Estimate'} Text
-                    </span>
-                  </div>
+                <div className="space-y-2 border-t border-slate-100 pt-3">
+                  <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">
+                    Customer Text / SMS Preview
+                  </span>
                   <textarea
                     readOnly
                     value={copyText}
-                    className="w-full h-36 bg-slate-50 border border-slate-200 rounded-xl p-3 text-[10px] font-mono leading-relaxed text-slate-600 focus:outline-none resize-none"
+                    className="w-full h-32 bg-slate-50/90 border border-slate-200 rounded-2xl p-3 text-[11px] font-mono leading-relaxed text-slate-600 focus:outline-none resize-none"
                   />
                   
                   <button
                     onClick={handleCopy}
-                    className={`w-full py-2.5 px-4 rounded-xl text-xs font-bold font-outfit transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                    className={`w-full py-3 px-4 rounded-2xl text-xs font-black font-outfit transition-all flex items-center justify-center gap-2 cursor-pointer shadow-md ${
                       copied
-                        ? 'bg-brand-success text-white shadow-sm'
-                        : 'bg-slate-800 hover:bg-slate-900 text-white shadow-sm'
+                        ? 'bg-emerald-600 text-white shadow-emerald-600/20'
+                        : 'bg-slate-900 hover:bg-slate-800 text-white shadow-slate-900/20'
                     }`}
                   >
                     {copied ? (
                       <>
-                        <Check className="w-4 h-4" />
+                        <Check className="w-4 h-4 text-white" />
                         <span>Copied to Clipboard!</span>
                       </>
                     ) : (
                       <>
                         <Copy className="w-4 h-4" />
-                        <span>Copy Repair {wordingType === 'tentative' ? 'Tentative Quote' : 'Estimate'}</span>
+                        <span>Copy Quote for Customer</span>
                       </>
                     )}
                   </button>
@@ -1059,23 +1145,23 @@ export default function RepairEstimator() {
             )}
 
             {/* Custom Part Creator Form Toggle */}
-            <div className="border-t border-slate-100 pt-4 mt-2">
+            <div className="border-t border-slate-100 pt-4">
               {!showCustomForm ? (
                 <button
                   onClick={() => setShowCustomForm(true)}
-                  className="w-full py-2.5 px-3 border border-dashed border-slate-300 rounded-xl text-xs font-bold text-slate-500 hover:text-brand-blue hover:border-brand-blue hover:bg-brand-blue/5 transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm bg-white"
+                  className="w-full py-2.5 px-3 border border-dashed border-slate-300 rounded-2xl text-xs font-bold font-outfit text-slate-500 hover:text-sky-600 hover:border-sky-400 hover:bg-sky-50/50 transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs bg-white"
                 >
-                  <Plus className="w-3.5 h-3.5 text-slate-400 hover:text-brand-blue" />
-                  <span>Add Custom Part / Labor</span>
+                  <Plus className="w-4 h-4 text-slate-400 hover:text-sky-600" />
+                  <span>Add Custom Part / Labor Item</span>
                 </button>
               ) : (
-                <form onSubmit={addCustomItem} className="bg-slate-50 p-4 rounded-xl border border-brand-border space-y-3.5">
+                <form onSubmit={addCustomItem} className="bg-slate-50/90 p-4 rounded-2xl border border-slate-200 space-y-3">
                   <div className="flex justify-between items-center">
-                    <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">New Custom Item</span>
+                    <span className="text-[10px] font-black text-slate-600 uppercase tracking-wider font-outfit">New Custom Line Item</span>
                     <button
                       type="button"
                       onClick={() => setShowCustomForm(false)}
-                      className="text-[10px] text-slate-400 hover:text-slate-600 font-bold underline"
+                      className="text-[10px] text-slate-400 hover:text-slate-600 font-bold cursor-pointer"
                     >
                       Cancel
                     </button>
@@ -1086,10 +1172,10 @@ export default function RepairEstimator() {
                     <input
                       type="text"
                       required
-                      placeholder="e.g. 2 in PVC Ball Valve"
+                      placeholder="e.g. 2 in Schedule 40 PVC Ball Valve"
                       value={customDesc}
                       onChange={(e) => setCustomDesc(e.target.value)}
-                      className="w-full bg-white border border-brand-border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-brand-blue text-slate-800 font-medium"
+                      className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 text-slate-800 font-medium"
                     />
                   </div>
 
@@ -1103,7 +1189,7 @@ export default function RepairEstimator() {
                         placeholder="0.00"
                         value={customPrice}
                         onChange={(e) => setCustomPrice(e.target.value)}
-                        className="w-full bg-white border border-brand-border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-brand-blue text-slate-800 font-medium"
+                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 text-slate-800 font-medium"
                       />
                     </div>
                     <div className="space-y-1">
@@ -1113,16 +1199,16 @@ export default function RepairEstimator() {
                         min="1"
                         value={customQty}
                         onChange={(e) => setCustomQty(parseInt(e.target.value) || 1)}
-                        className="w-full bg-white border border-brand-border rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-brand-blue text-slate-800 font-medium"
+                        className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-sky-500/20 focus:border-sky-500 text-slate-800 font-medium"
                       />
                     </div>
                   </div>
 
                   <button
                     type="submit"
-                    className="w-full bg-brand-blue hover:bg-brand-blueDark text-white py-1.5 rounded-lg text-xs font-bold transition shadow-sm cursor-pointer"
+                    className="w-full bg-sky-600 hover:bg-sky-500 text-white py-2 rounded-xl text-xs font-bold font-outfit transition shadow-sm cursor-pointer"
                   >
-                    Add Custom Item
+                    Add Item to Quote
                   </button>
                 </form>
               )}
